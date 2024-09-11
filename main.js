@@ -79,7 +79,11 @@ async function fetchPlayerData(url) {
                 if (response.ok) return response.json()
                 throw new Error('Network response was not ok.')
             })
-            .then(data => console.log(data.contents));
+            .then(data => {
+                console.log(data.contents);
+                return JSON.parse(data.contents);
+            }
+            );
         /*const data = await response.json();
         console.log('Fetched data:', data);
         return data;*/
