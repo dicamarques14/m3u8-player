@@ -84,8 +84,12 @@ async function fetchPlayerData(url) {
                 return JSON.parse(data.contents);
             }
             );
+        console.log('Fetched resp:', response);
+        console.log(response["streams"])
+        console.log(response["streams"][0])
+        console.log(response["streams"][0]["playlistfile"])
+        
         /*const data = await response.json();
-        console.log('Fetched data:', data);
         return data;*/
     } catch (error) {
         console.error('Error fetching playerdata:', error);
