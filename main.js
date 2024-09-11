@@ -76,6 +76,12 @@ async function fetchPlayerData(url) {
     // Build the playerdata URL based on the type
     if (parsedUrl.type === 'A') {
         playerdataUrl = `https://www.clipmyhorse.tv/en_US/archive/playerdata/${parsedUrl.eventId}/${parsedUrl.competition}`;
+        const response = await doFetchWithCors(playerdataUrl);
+        console.log('Fetched resp:', response);
+        console.log(response["streams"])
+        console.log(response["streams"][0])
+        console.log(response["streams"][0]["playlistfile"])
+        window.location.href = './player/' + '#' + response["streams"][0]["playlistfile"];
     } else if (parsedUrl.type === 'B') {
         playerdataUrl = `https://www.clipmyhorse.tv/en_US/playlist/playerdata/${parsedUrl.horse}`;
         const response = await doFetchWithCors(playerdataUrl);
