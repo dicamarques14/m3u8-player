@@ -51,7 +51,7 @@ function parseClipMyHorseUrl(url) {
 }
 
 async function doFetchWithCors(url){
-    return await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(playerdataUrl)}`)
+    return await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`)
             .then(response => {
                 if (response.ok) return response.json()
                 throw new Error('Network response was not ok.')
