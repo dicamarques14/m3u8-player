@@ -1,15 +1,17 @@
-<html><head>
-    <script
-  src="https://code.jquery.com/jquery-3.2.1.min.js"
-  integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
-  crossorigin="anonymous"></script>
+<html>
+
+<head>
+  <link rel="manifest" href="manifest.json" />
+  <script src="https://code.jquery.com/jquery-3.2.1.min.js"
+    integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <script src="mousetrap.min.js" charset="utf-8"></script>
   <style>
-    body{
-      background-color:black;
+    body {
+      background-color: black;
     }
-    #video{
+
+    #video {
       position: absolute;
       top: 0px;
       right: 0px;
@@ -20,9 +22,13 @@
       max-width: 100%;
     }
   </style>
-<title>M3U8 Player running...</title></head>
+  <script>navigator.serviceWorker.register("service-worker.js")</script>
+  <title>M3U8 Player running...</title>
+</head>
+
 <body>
   <video id="video" style="width: 100%; height: 100%;" controls=""></video>
   <script src="player.js"></script>
 </body>
+
 </html>

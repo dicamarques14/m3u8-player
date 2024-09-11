@@ -24,7 +24,7 @@ function parseClipMyHorseUrl(url) {
         const [, eventId, competition] = url.match(typeARegex);
         result = {
             type: 'A',
-            event,
+            eventId,
             competition
         };
     } else if (typeBRegex.test(url)) {
@@ -73,11 +73,13 @@ async function fetchPlayerData(url) {
     }
 
     try {
-        const response = await fetch(playerdataUrl);
-        
-        if (!response.ok) {
-            throw new Error(`Failed to fetch data. Status: ${response.status}`);
-        }
+
+        const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(playerdataUrl)}`)
+                    .then(response => {
+                      if (response.ok) return response.json()
+                      throw new Error('Network response was not ok.')
+                    })
+                    .then(data => {return data});
 
         const data = await response.json();
         console.log('Fetched data:', data);
