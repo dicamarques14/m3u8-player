@@ -50,6 +50,19 @@ function parseClipMyHorseUrl(url) {
     return result;
 }
 
+async function doFetchWithCors(url){
+    return await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(playerdataUrl)}`)
+            .then(response => {
+                if (response.ok) return response.json()
+                throw new Error('Network response was not ok.')
+            })
+            .then(data => {
+                console.log(data.contents);
+                return JSON.parse(data.contents);
+            }
+            );
+}
+
 async function fetchPlayerData(url) {
     const parsedUrl = parseClipMyHorseUrl(url);
 
@@ -65,36 +78,27 @@ async function fetchPlayerData(url) {
         playerdataUrl = `https://www.clipmyhorse.tv/en_US/archive/playerdata/${parsedUrl.eventId}/${parsedUrl.competition}`;
     } else if (parsedUrl.type === 'B') {
         playerdataUrl = `https://www.clipmyhorse.tv/en_US/playlist/playerdata/${parsedUrl.horse}`;
+        const response = doFetchWithCors(playerdataUrl);
+        console.log('Fetched resp:', response);
+        console.log(response["playlist"])
+        console.log(JSON.parse(response["playlist"]))
+        playlist = JSON.parse(response["playlist"])
+        window.location.href = './player/' + '#' + playlist[parsedUrl.videoNum]["stream_url"];
+        
+
     } else if (parsedUrl.type === 'C') {
         playerdataUrl = `https://www.clipmyhorse.tv/en_US/live/playerdata/14178/${parsedUrl.eventId}`;
-    } else {
-        console.log('Unknown URL type');
-        return;
-    }
-
-    try {
-
-        const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(playerdataUrl)}`)
-            .then(response => {
-                if (response.ok) return response.json()
-                throw new Error('Network response was not ok.')
-            })
-            .then(data => {
-                console.log(data.contents);
-                return JSON.parse(data.contents);
-            }
-            );
+        const response = doFetchWithCors(playerdataUrl);
         console.log('Fetched resp:', response);
         console.log(response["streams"])
         console.log(response["streams"][0])
         console.log(response["streams"][0]["playlistfile"])
         window.location.href = './player/' + '#' + response["streams"][0]["playlistfile"];
-        
-        /*const data = await response.json();
-        return data;*/
-    } catch (error) {
-        console.error('Error fetching playerdata:', error);
+    } else {
+        console.log('Unknown URL type');
+        return;
     }
+
 }
 
 /*
