@@ -88,7 +88,7 @@ async function fetchPlayerData(url) {
         console.log(response["streams"])
         console.log(response["streams"][0])
         console.log(response["streams"][0]["playlistfile"])
-        window.location.href = './player' + '#' + response["streams"][0]["playlistfile"];
+        window.location.href = './player/' + '#' + response["streams"][0]["playlistfile"];
         
         /*const data = await response.json();
         return data;*/
