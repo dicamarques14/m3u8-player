@@ -51,7 +51,7 @@ function parseClipMyHorseUrl(url) {
 }
 
 async function doFetchWithCors(url){
-    return await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`)
+    return fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`)
             .then(response => {
                 if (response.ok) return response.json()
                 throw new Error('Network response was not ok.')
@@ -78,7 +78,7 @@ async function fetchPlayerData(url) {
         playerdataUrl = `https://www.clipmyhorse.tv/en_US/archive/playerdata/${parsedUrl.eventId}/${parsedUrl.competition}`;
     } else if (parsedUrl.type === 'B') {
         playerdataUrl = `https://www.clipmyhorse.tv/en_US/playlist/playerdata/${parsedUrl.horse}`;
-        const response = doFetchWithCors(playerdataUrl);
+        const response = await doFetchWithCors(playerdataUrl);
         console.log('Fetched resp:', response);
         console.log(response["playlist"])
         console.log(JSON.parse(response["playlist"]))
@@ -88,7 +88,7 @@ async function fetchPlayerData(url) {
 
     } else if (parsedUrl.type === 'C') {
         playerdataUrl = `https://www.clipmyhorse.tv/en_US/live/playerdata/14178/${parsedUrl.eventId}`;
-        const response = doFetchWithCors(playerdataUrl);
+        const response = await doFetchWithCors(playerdataUrl);
         console.log('Fetched resp:', response);
         console.log(response["streams"])
         console.log(response["streams"][0])
