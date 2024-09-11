@@ -75,15 +75,14 @@ async function fetchPlayerData(url) {
     try {
 
         const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(playerdataUrl)}`)
-                    .then(response => {
-                      if (response.ok) return response.json()
-                      throw new Error('Network response was not ok.')
-                    })
-                    .then(data => {return data});
-
-        const data = await response.json();
+            .then(response => {
+                if (response.ok) return response.json()
+                throw new Error('Network response was not ok.')
+            })
+            .then(data => console.log(data.contents));
+        /*const data = await response.json();
         console.log('Fetched data:', data);
-        return data;
+        return data;*/
     } catch (error) {
         console.error('Error fetching playerdata:', error);
     }
