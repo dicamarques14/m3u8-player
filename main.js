@@ -68,6 +68,7 @@ async function fetchPlayerData(url) {
 
     if (!parsedUrl) {
         console.log('Invalid URL or unable to parse the URL');
+        window.location.href = './player/' + '#' + url;
         return;
     }
 
