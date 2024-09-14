@@ -38,10 +38,11 @@
             margin: 0.5em 2.5em;
             color: rgb(18, 96, 101);
             font-size: 2.5em;
-        }        
-        
+        }
+
         #alert-box {
-            display: none; /* Initially hidden */
+            display: none;
+            /* Initially hidden */
             margin-top: 1em;
         }
     </style>
@@ -54,14 +55,18 @@
                 <div class="text-center w-100">
                     <h1 class="page-name">M3U8 Player</h1>
                     <!-- Alert section -->
-                    <div class="alert alert-danger" id="alert-box" role="alert">
-                        Please enter a valid M3U8 link.
+                    <div class="alert alert-danger alert-dismissible fade show" id="alert-box" role="alert">
+                        Please enter a valid M3U8 or CMH link.
+                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
                     </div>
                     <div class="input-group mx-auto">
                         <input type="text" class="form-control" placeholder="Paste the m3u8 link here"
                             id="m3u8-placeholder">
                         <span class="input-group-btn">
-                            <button class="btn btn-primary" type="button" id="play-btn">Play</button>
+                            <button class="btn btn-secondary" type="button" id="paste-btn">Paste</button> 
+                            <button class="btn btn-success" type="button" id="play-btn">Play</button>
                         </span>
                     </div>
                 </div>

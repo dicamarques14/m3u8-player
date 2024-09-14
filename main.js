@@ -4,7 +4,7 @@ function parseClipMyHorseUrl(url) {
     // Check if it's a valid ClipMyHorse URL
     const isValidClipMyHorseUrl = clipMyHorseRegex.test(url);
     if (!isValidClipMyHorseUrl) {
-        console.log('Invalid URL for ClipMyHorse');
+        console.warn("parseClipMyHorseUrl", 'Invalid URL for ClipMyHorse');
         return null;
     }
 
@@ -43,101 +43,114 @@ function parseClipMyHorseUrl(url) {
             eventId
         };
     } else {
-        console.log('URL does not match any recognized format');
+        console.warn("parseClipMyHorseUrl", 'URL does not match any recognized format');
         return null;
     }
 
     return result;
 }
 
-async function doFetchWithCors(url){
-    return fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`)
+async function doFetchWithCors(url) {
+    try {
+        return await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`)
             .then(response => {
                 if (response.ok) return response.json()
                 throw new Error('Network response was not ok.')
             })
             .then(data => {
-                console.log(data.contents);
                 return JSON.parse(data.contents);
             }
             );
+    } catch (error) {
+        console.error("doFetchWithCors", error);
+        document.getElementById('alert-box').style.display = 'block';
+        $('#play-btn').prop('disabled', false);
+    }
 }
-
 async function fetchPlayerData(url) {
     const parsedUrl = parseClipMyHorseUrl(url);
 
     if (!parsedUrl) {
-        console.log('Invalid URL or unable to parse the URL');
-        $('#alert-box').alert();
-        $('#play-btn').prop('disabled', false);
+        displayError('Invalid URL or unable to parse the URL, will try m3u8 link.');
         window.location.href = './player/' + '#' + url;
         return;
     }
 
     let playerdataUrl = '';
 
-    // Build the playerdata URL based on the type
-    if (parsedUrl.type === 'A') {
-        playerdataUrl = `https://www.clipmyhorse.tv/en_US/archive/playerdata/${parsedUrl.eventId}/${parsedUrl.competition}`;
-        const response = await doFetchWithCors(playerdataUrl);
-        console.log('Fetched resp:', response);
-        console.log(response["streams"])
-        console.log(response["streams"][0])
-        console.log(response["streams"][0]["playlistfile"])
-        window.location.href = './player/' + '#' + response["streams"][0]["playlistfile"];
-    } else if (parsedUrl.type === 'B') {
-        playerdataUrl = `https://www.clipmyhorse.tv/en_US/playlist/playerdata/${parsedUrl.horse}`;
-        const response = await doFetchWithCors(playerdataUrl);
-        console.log('Fetched resp:', response);
-        console.log(response["playlist"])
-        console.log(JSON.parse(response["playlist"]))
-        playlist = JSON.parse(response["playlist"])
-        window.location.href = './player/' + '#' + playlist[parsedUrl.videoNum]["stream_url"];
-        
-
-    } else if (parsedUrl.type === 'C') {
-        playerdataUrl = `https://www.clipmyhorse.tv/en_US/live/playerdata/14178/${parsedUrl.eventId}`;
-        const response = await doFetchWithCors(playerdataUrl);
-        console.log('Fetched resp:', response);
-        console.log(response["streams"])
-        console.log(response["streams"][0])
-        console.log(response["streams"][0]["playlistfile"])
-        window.location.href = './player/' + '#' + response["streams"][0]["playlistfile"];
-    } else {
-        console.log('Unknown URL type');
-        $('#play-btn').prop('disabled', false);
-        $('#alert-box').alert();
-        return;
+    // Determine playerdata URL based on the type
+    switch (parsedUrl.type) {
+        case 'A':
+            playerdataUrl = `https://www.clipmyhorse.tv/en_US/archive/playerdata/${parsedUrl.eventId}/${parsedUrl.competition}`;
+            break;
+        case 'B':
+            playerdataUrl = `https://www.clipmyhorse.tv/en_US/playlist/playerdata/${parsedUrl.horse}`;
+            break;
+        case 'C':
+            playerdataUrl = `https://www.clipmyhorse.tv/en_US/live/playerdata/14178/${parsedUrl.eventId}`;
+            break;
+        default:
+            displayError('Unknown URL type');
+            return;
     }
 
+    // Fetch and handle the player data
+    try {
+        const response = await doFetchWithCors(playerdataUrl);
+        if (response) {
+            handlePlayerRedirect(parsedUrl, response);
+        } else {
+            throw new Error('Invalid response data');
+        }
+    } catch (error) {
+        console.error('fetchPlayerData error:', error.message);
+        displayError('Failed to fetch player data.');
+    }
 }
 
-/*
-// Test the function with an example URL
-const testUrlA = 'https://www.clipmyhorse.tv/en_US/ondemand/event/13934/competition/266802';
-fetchPlayerData(testUrlA);
+// Helper to handle redirection based on parsed URL type
+function handlePlayerRedirect(parsedUrl, response) {
+    if (parsedUrl.type === 'A' || parsedUrl.type === 'C') {
+        window.location.href = './player/' + '#' + response["streams"][0]["playlistfile"];
+    } else if (parsedUrl.type === 'B') {
+        window.location.href = './player/' + '#' + playlist[parsedUrl.videoNum]["stream_url"];
+    }
+}
 
-
-
-// Test with Type A, Type B, and Type C URLs
-const urlA = 'https://www.clipmyhorse.tv/en_US/ondemand/event/13934/competition/266802';
-const urlAWithStart = 'https://www.clipmyhorse.tv/en_US/ondemand/event/13934/competition/266802?start_at=10690213';
-const urlB = 'https://www.clipmyhorse.tv/pt_BR/horse/9a3ab1ad-6ae0-42fb-b2e7-7c69b806584c#65';
-const urlC = 'https://www.clipmyhorse.tv/en_US/live/19395/international-24-7-clipmyhorse-tv-global-highlights-from-sport-breeding-academy-and-entertainment';
-
-console.log(parseClipMyHorseUrl(urlA));          // {type: 'A', eventId: '13934', competition: '266802'}
-console.log(parseClipMyHorseUrl(urlAWithStart)); // {type: 'A', eventId: '13934', competition: '266802'}
-console.log(parseClipMyHorseUrl(urlB));          // {type: 'B', horse: '9a3ab1ad-6ae0-42fb-b2e7-7c69b806584c', videoNum: '65'}
-console.log(parseClipMyHorseUrl(urlC));          // {type: 'C', eventId: '19395'}
-*/
+// Helper to display error messages and re-enable the play button
+function displayError(message) {
+    console.warn("fetchPlayerData", message);
+    document.getElementById('alert-box').style.display = 'block';
+    $('#play-btn').prop('disabled', false);
+}
 
 $(window).on('load', function () {
     $('#m3u8-placeholder')[0].value = localStorage.getItem('m3u8-link') || '';
     $('#play-btn').prop('disabled', false);
+    $('#paste-btn').on('click', async function () {
+        try {
+            const clipboardText = await navigator.clipboard.readText();
+            document.getElementById('m3u8-placeholder').value = clipboardText;
+        } catch (err) {
+            console.error('Failed to read clipboard contents: ', err);
+        }
+    });
     $('#play-btn').on('click', function () {
+        document.getElementById('alert-box').style.display = 'none';
         $('#play-btn').prop('disabled', true);
         localStorage.setItem('m3u8-link', $('#m3u8-placeholder')[0].value);
         fetchPlayerData($('#m3u8-placeholder')[0].value);
     });
 });
 
+/*
+// Test the function with an example URL
+const testUrlA = 'https://www.clipmyhorse.tv/en_US/ondemand/event/13934/competition/266802';
+fetchPlayerData(testUrlA);
+
+// Test with Type A, Type B, and Type C URLs
+const urlA = 'https://www.clipmyhorse.tv/en_US/ondemand/event/13934/competition/266802';
+const urlAWithStart = 'https://www.clipmyhorse.tv/en_US/ondemand/event/13934/competition/266802?start_at=10690213';
+const urlB = 'https://www.clipmyhorse.tv/pt_BR/horse/9a3ab1ad-6ae0-42fb-b2e7-7c69b806584c#65';
+const urlC = 'https://www.clipmyhorse.tv/en_US/live/19395/international-24-7-clipmyhorse-tv-global-highlights-from-sport-breeding-academy-and-entertainment';
+*/
