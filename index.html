@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="manifest" href="manifest.json" />
     <title>M3U8 Player</title>
     <script src="https://code.jquery.com/jquery-3.2.1.min.js"
@@ -13,19 +14,58 @@
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/js/bootstrap.min.js"
         integrity="sha384-h0AbiXch4ZDo7tp9hKZ4TsHbi047NrKGLO3SEJAg45jXxnGIfYzk4Si90RDIqNm1"
         crossorigin="anonymous"></script>
-    <link rel="stylesheet" href="home.css">
     <script type="text/javascript" src="main.js"></script>
     <script>navigator.serviceWorker.register("service-worker.js")</script>
+    <style>
+        body,
+        html {
+            height: 100%;
+        }
+
+        #text-box {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+        }
+
+        .input-group {
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .page-name {
+            margin: 0.5em 2.5em;
+            color: rgb(18, 96, 101);
+            font-size: 2.5em;
+        }        
+        
+        #alert-box {
+            display: none; /* Initially hidden */
+            margin-top: 1em;
+        }
+    </style>
 </head>
 
 <body>
-    <div class="col-lg-6" id="text-box">
-        <h1 class="page-name">M3U8 Player</h1>
-        <div class="input-group">
-            <input type="text" class="form-control" placeholder="Paste the m3u8 link here" id="m3u8-placeholder">
-            <span class="input-group-btn">
-                <button class="btn btn-primary" type="button" id="play-btn">Play</button>
-            </span>
+    <div class="container h-100">
+        <div class="row h-100 justify-content-center align-items-center">
+            <div class="col-12" id="text-box">
+                <div class="text-center w-100">
+                    <h1 class="page-name">M3U8 Player</h1>
+                    <!-- Alert section -->
+                    <div class="alert alert-danger" id="alert-box" role="alert">
+                        Please enter a valid M3U8 link.
+                    </div>
+                    <div class="input-group mx-auto">
+                        <input type="text" class="form-control" placeholder="Paste the m3u8 link here"
+                            id="m3u8-placeholder">
+                        <span class="input-group-btn">
+                            <button class="btn btn-primary" type="button" id="play-btn">Play</button>
+                        </span>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </body>

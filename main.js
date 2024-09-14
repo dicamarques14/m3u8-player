@@ -68,6 +68,8 @@ async function fetchPlayerData(url) {
 
     if (!parsedUrl) {
         console.log('Invalid URL or unable to parse the URL');
+        $('#alert-box').alert();
+        $('#play-btn').prop('disabled', false);
         return;
     }
 
@@ -102,6 +104,8 @@ async function fetchPlayerData(url) {
         window.location.href = './player/' + '#' + response["streams"][0]["playlistfile"];
     } else {
         console.log('Unknown URL type');
+        $('#play-btn').prop('disabled', false);
+        $('#alert-box').alert();
         return;
     }
 
@@ -128,7 +132,9 @@ console.log(parseClipMyHorseUrl(urlC));          // {type: 'C', eventId: '19395'
 
 $(window).on('load', function () {
     $('#m3u8-placeholder')[0].value = localStorage.getItem('m3u8-link') || '';
+    $('#play-btn').prop('disabled', false);
     $('#play-btn').on('click', function () {
+        $('#play-btn').prop('disabled', true);
         localStorage.setItem('m3u8-link', $('#m3u8-placeholder')[0].value);
         fetchPlayerData($('#m3u8-placeholder')[0].value);
         //window.location.href = './player' + '#' + $('#m3u8-placeholder')[0].value;
