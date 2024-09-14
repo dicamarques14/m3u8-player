@@ -131,6 +131,7 @@ $(window).on('load', function () {
         try {
             const clipboardText = await navigator.clipboard.readText();
             document.getElementById('m3u8-placeholder').value = clipboardText;
+            localStorage.setItem('m3u8-link', clipboardText);
         } catch (err) {
             console.error('Failed to read clipboard contents: ', err);
         }
