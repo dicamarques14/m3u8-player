@@ -1,10 +1,10 @@
-function parseClipMyHorseUrl(url) {
-    const clipMyHorseRegex = /^https:\/\/www\.clipmyhorse\.tv\/[a-z]{2}_[A-Z]{2}\/(ondemand|horse|live)\/(.+)/;
+function parseCMPonyUrl(url) {
+    const clipMPonyRegex = /^https:\/\/www\.clipmyhorse\.tv\/[a-z]{2}_[A-Z]{2}\/(ondemand|horse|live)\/(.+)/;
 
-    // Check if it's a valid ClipMyHorse URL
-    const isValidClipMyHorseUrl = clipMyHorseRegex.test(url);
-    if (!isValidClipMyHorseUrl) {
-        console.warn("parseClipMyHorseUrl", 'Invalid URL for ClipMyHorse');
+    // Check if it's a valid CMPony URL
+    const isValidCMPonyUrl = clipMPonyRegex.test(url);
+    if (!isValidCMPonyUrl) {
+        console.warn("parseCMPonyUrl", 'Invalid URL for CMPony');
         return null;
     }
 
@@ -43,7 +43,7 @@ function parseClipMyHorseUrl(url) {
             eventId
         };
     } else {
-        console.warn("parseClipMyHorseUrl", 'URL does not match any recognized format');
+        console.warn("parseCMPonyUrl", 'URL does not match any recognized format');
         return null;
     }
 
@@ -67,8 +67,9 @@ async function doFetchWithCors(url) {
         $('#play-btn').prop('disabled', false);
     }
 }
+
 async function fetchPlayerData(url) {
-    const parsedUrl = parseClipMyHorseUrl(url);
+    const parsedUrl = parseCMPonyUrl(url);
 
     if (!parsedUrl) {
         displayError('Invalid URL or unable to parse the URL, will try m3u8 link.');
@@ -113,7 +114,13 @@ function handlePlayerRedirect(parsedUrl, response) {
     if (parsedUrl.type === 'A' || parsedUrl.type === 'C') {
         window.location.href = './player/' + '#' + response["streams"][0]["playlistfile"];
     } else if (parsedUrl.type === 'B') {
-        window.location.href = './player/' + '#' + playlist[parsedUrl.videoNum]["stream_url"];
+        try {
+            const playlist = JSON.parse(response.playlist);
+            window.location.href = './player/' + '#' + playlist[parsedUrl.videoNum]["stream_url"];
+        } catch (error) {
+            console.error('handlePlayerRedirect error:', error.message);
+            displayError('Failed to parse response data.');
+        }
     }
 }
 
