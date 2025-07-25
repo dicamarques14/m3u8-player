@@ -52,7 +52,7 @@ function parseCMPonyUrl(url) {
 
 async function doFetchWithCors(url) {
     try {
-        return await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`)
+        return await fetch(`https://allorigins.thedg.xyz/get?url=${encodeURIComponent(url)}`)
             .then(response => {
                 if (response.ok) return response.json()
                 throw new Error('Network response was not ok.')
