@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="manifest" href="manifest.json" />
-    <title>🏴‍☠️🐎Player🐎🏴‍☠️</title>
+    <title>🦄 Unicorn Player 🦄</title>
     <script src="https://code.jquery.com/jquery-3.2.1.min.js"
         integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
     <script type="text/javascript" src="https://unpkg.com/popper.js@1.12.3"></script>
@@ -45,6 +45,22 @@
             /* Initially hidden */
             margin-top: 1em;
         }
+
+        /* Hue cycle reads as RGB-ish rainbow on emoji (gradient clip often hides glyphs). */
+        @keyframes unicorn-rgb-hue {
+            from {
+                filter: hue-rotate(0deg) saturate(1.45) brightness(1.05);
+            }
+
+            to {
+                filter: hue-rotate(360deg) saturate(1.45) brightness(1.05);
+            }
+        }
+
+        .unicorn-rgb {
+            display: inline-block;
+            animation: unicorn-rgb-hue 4s linear infinite;
+        }
     </style>
 </head>
 
@@ -53,10 +69,12 @@
         <div class="row h-100 justify-content-center align-items-center">
             <div class="col-12" id="text-box">
                 <div class="text-center w-100">
-                    <h1 class="page-name">🏴‍☠️🐎Clip My Pony Player - v2🐎🏴‍☠️</h1>
+                    <h2 class="page-name">🏴‍☠️🐎Clip My Pony Player - v3🐎🏴‍☠️</h2>
+                    <h3 class="page-name"><span class="unicorn-rgb">🦄</span>Unicorn Edition<span
+                            class="unicorn-rgb">🦄</span></h3>
                     <!-- Alert section -->
                     <div class="alert alert-danger alert-dismissible fade show" id="alert-box" role="alert">
-                        Please enter a valid M3U8 or CMH link.
+                        <span id="alert-message">Please enter a valid M3U8 or CMH link.</span>
                         <button type="button" class="close" data-dismiss="alert" aria-label="Close">
                             <span aria-hidden="true">&times;</span>
                         </button>

@@ -1,23 +1,112 @@
 var video = document.getElementById('video');
+var hlsInstance = null;
+var allowPlaybackUrlSync = false;
 
-function playM3u8(url) {
-    if(url == undefined){
-        window.location.href = '../';
+function destroyHls() {
+    if (hlsInstance) {
+        hlsInstance.destroy();
+        hlsInstance = null;
     }
-    
+}
+
+function parseM3u8FromHash() {
+    var raw = window.location.hash.slice(1);
+    if (!raw) {
+        return undefined;
+    }
+    try {
+        return decodeURIComponent(raw);
+    } catch (e) {
+        return raw;
+    }
+}
+
+function startSecondsFromQuery() {
+    var t = new URLSearchParams(window.location.search).get('t');
+    if (t === null || t === '') {
+        return undefined;
+    }
+    var n = parseFloat(t);
+    return Number.isFinite(n) ? n : undefined;
+}
+
+function formatTimeParam(seconds) {
+    if (!Number.isFinite(seconds) || seconds < 0.05) {
+        return null;
+    }
+    var rounded = Math.round(seconds * 10) / 10;
+    if (Math.abs(rounded - Math.round(rounded)) < 1e-6) {
+        return String(Math.round(rounded));
+    }
+    return String(rounded);
+}
+
+function buildPlayerUrlWithCurrentTime() {
+    var u = new URL(window.location.href);
+    var param = formatTimeParam(video.currentTime);
+    if (param !== null) {
+        u.searchParams.set('t', param);
+    } else {
+        u.searchParams.delete('t');
+    }
+    u.hash = window.location.hash;
+    return u.href;
+}
+
+function replaceUrlWithCurrentTime() {
+    if (!allowPlaybackUrlSync || !parseM3u8FromHash()) {
+        return;
+    }
+    var u = new URL(window.location.href);
+    var param = formatTimeParam(video.currentTime);
+    if (param !== null) {
+        u.searchParams.set('t', param);
+    } else {
+        u.searchParams.delete('t');
+    }
+    var next = u.pathname + u.search + u.hash;
+    var cur = window.location.pathname + window.location.search + window.location.hash;
+    if (next !== cur) {
+        history.replaceState(null, '', next);
+    }
+}
+
+function applyStartTime(seconds) {
+    if (seconds === undefined || seconds === null || !Number.isFinite(seconds) || seconds < 0) {
+        return;
+    }
+    var apply = function () {
+        var end = video.duration;
+        if (Number.isFinite(end) && end > 0 && seconds > end) {
+            video.currentTime = end;
+        } else {
+            video.currentTime = seconds;
+        }
+    };
+    video.addEventListener('loadedmetadata', apply, { once: true });
+}
+
+function playM3u8(m3u8Url, startSeconds) {
+    if (m3u8Url === undefined || m3u8Url === '') {
+        window.location.href = '../';
+        return;
+    }
+
+    destroyHls();
+    applyStartTime(startSeconds);
+
     if (Hls.isSupported()) {
         video.volume = 0.3;
-        var hls = new Hls();
-        var m3u8Url = decodeURIComponent(url)
-        hls.loadSource(m3u8Url);
-        hls.attachMedia(video);
-        hls.on(Hls.Events.MANIFEST_PARSED, function () {
+        hlsInstance = new Hls();
+        hlsInstance.loadSource(m3u8Url);
+        hlsInstance.attachMedia(video);
+        hlsInstance.on(Hls.Events.MANIFEST_PARSED, function () {
             video.play();
         });
-    }
-    else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = url;
-        video.addEventListener('canplay', function () {
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = m3u8Url;
+        video.addEventListener('canplay', function onCanPlay() {
+            video.removeEventListener('canplay', onCanPlay);
             video.play();
         });
         video.volume = 0.3;
@@ -54,9 +143,23 @@ function vidFullscreen() {
     }
 }
 
+// Only tear down Hls when the page is actually discarded. Skip when persisted (bfcache /
+// frozen page): destroying there would break restore, Back navigation, and any path that
+// keeps the document alive while hidden. pagehide is not the same as visibilitychange;
+// minimizing or switching apps usually does not fire pagehide (PiP keeps the page loaded).
+window.addEventListener('pagehide', function (event) {
+    if (event.persisted) {
+        return;
+    }
+    destroyHls();
+});
+
 $(window).on('load', function () {
-    playM3u8(window.location.href.split("#")[1])
+    playM3u8(parseM3u8FromHash(), startSecondsFromQuery());
     $('#video').on('click', function () { this.paused ? this.play() : this.pause(); });
+    $('#video').one('loadedmetadata', function () {
+        allowPlaybackUrlSync = true;
+    });
 
     Mousetrap.bind('space', playPause);
     Mousetrap.bind('up', volumeUp);
@@ -65,20 +168,45 @@ $(window).on('load', function () {
     Mousetrap.bind('left', seekLeft);
     Mousetrap.bind('f', vidFullscreen);
 
-    // Share button logic
+    var lastUrlSyncMs = 0;
+    function maybeThrottleSyncPlaybackToUrl() {
+        var now = Date.now();
+        if (now - lastUrlSyncMs < 2500) {
+            return;
+        }
+        lastUrlSyncMs = now;
+        if (!video.paused) {
+            replaceUrlWithCurrentTime();
+        }
+    }
+
+    $('#video').on('pause seeked', function () {
+        replaceUrlWithCurrentTime();
+    });
+    $('#video').on('timeupdate', function () {
+        maybeThrottleSyncPlaybackToUrl();
+    });
+
     $('#share-btn').click(function () {
+        var shareUrl = buildPlayerUrlWithCurrentTime();
         if (navigator.share) {
             navigator.share({
                 title: document.title,
-                text: 'Check out this video!',
-                url: window.location.href,
+                text: 'Video at ' + (formatTimeParam(video.currentTime) || '0') + 's',
+                url: shareUrl,
             }).then(() => {
                 console.log('Thanks for sharing!');
-            }).catch((error) => {
+            }).catch(function (error) {
                 console.error('Error sharing', error);
             });
+        } else if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(shareUrl).then(function () {
+                alert('Link with timestamp copied to clipboard.');
+            }).catch(function () {
+                prompt('Copy this link:', shareUrl);
+            });
         } else {
-            alert('Your browser does not support the Web Share API.');
+            prompt('Copy this link (includes current time):', shareUrl);
         }
     });
 });
