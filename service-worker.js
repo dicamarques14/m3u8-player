@@ -17,11 +17,16 @@
         - Badges: https://microsoft.github.io/win-student-devs/#/30DaysOfPWA/advanced-capabilities/07?id=application-badges
     */
 
+    // App shell + static CDN assets only. M3U8 hosts and segment CDNs are omitted on purpose so
+    // the SW does not intercept or cache large streaming responses.
     const HOSTNAME_WHITELIST = [
         self.location.hostname,
         'fonts.gstatic.com',
         'fonts.googleapis.com',
-        'cdn.jsdelivr.net'
+        'cdn.jsdelivr.net',
+        'code.jquery.com',
+        'maxcdn.bootstrapcdn.com',
+        'unpkg.com'
     ]
 
     // The Util Function to hack URLs of intercepted requests
