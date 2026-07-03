@@ -154,8 +154,20 @@ window.addEventListener('pagehide', function (event) {
     destroyHls();
 });
 
+function originalUrlFromQuery() {
+    var orig = new URLSearchParams(window.location.search).get('orig');
+    return orig || null;
+}
+
 $(window).on('load', function () {
     playM3u8(parseM3u8FromHash(), startSecondsFromQuery());
+
+    var originalUrl = originalUrlFromQuery();
+    if (originalUrl) {
+        $('#original-btn').show().click(function () {
+            window.open(originalUrl, '_blank');
+        });
+    }
     $('#video').on('click', function () { this.paused ? this.play() : this.pause(); });
     $('#video').one('loadedmetadata', function () {
         allowPlaybackUrlSync = true;
@@ -168,26 +180,12 @@ $(window).on('load', function () {
     Mousetrap.bind('left', seekLeft);
     Mousetrap.bind('f', vidFullscreen);
 
-    var lastUrlSyncMs = 0;
-    function maybeThrottleSyncPlaybackToUrl() {
-        var now = Date.now();
-        if (now - lastUrlSyncMs < 2500) {
-            return;
-        }
-        lastUrlSyncMs = now;
-        if (!video.paused) {
-            replaceUrlWithCurrentTime();
-        }
-    }
-
-    $('#video').on('pause seeked', function () {
+    $('#video').on('pause', function () {
         replaceUrlWithCurrentTime();
-    });
-    $('#video').on('timeupdate', function () {
-        maybeThrottleSyncPlaybackToUrl();
     });
 
     $('#share-btn').click(function () {
+        replaceUrlWithCurrentTime();
         var shareUrl = buildPlayerUrlWithCurrentTime();
         if (navigator.share) {
             navigator.share({

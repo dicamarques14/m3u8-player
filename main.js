@@ -15,7 +15,7 @@ function parseCMPonyUrl(url) {
     const typeBRegex = /\/horse\/([a-z0-9\-]+)#(\d+)/;
 
     // Type C URL regex (live event)
-    const typeCRegex = /\/live\/(\d+)\/.+/;
+    const typeCRegex = /\/live\/(\d+)(?:\/.+)?/;
 
     let result = {};
 
@@ -81,12 +81,17 @@ async function doFetchWithCors(url, silent) {
     }
 }
 
-function navigateToPlayer(playlistUrl, startSeconds) {
+function navigateToPlayer(playlistUrl, startSeconds, originalUrl) {
     var encoded = encodeURIComponent(playlistUrl);
-    var href = './player/#' + encoded;
+    var params = new URLSearchParams();
     if (typeof startSeconds === 'number' && Number.isFinite(startSeconds) && startSeconds >= 0) {
-        href = './player/?t=' + encodeURIComponent(String(startSeconds)) + '#' + encoded;
+        params.set('t', String(startSeconds));
     }
+    if (originalUrl) {
+        params.set('orig', originalUrl);
+    }
+    var query = params.toString();
+    var href = './player/' + (query ? '?' + query : '') + '#' + encoded;
     window.location.href = href;
 }
 
@@ -123,7 +128,7 @@ async function fetchPlayerData(url) {
         if (!response) {
             return;
         }
-        await handlePlayerRedirect(parsedUrl, response);
+        await handlePlayerRedirect(parsedUrl, response, url);
     } catch (error) {
         console.error('fetchPlayerData error:', error.message);
         displayError('Failed to fetch player data.');
@@ -222,7 +227,7 @@ async function findStreamByStartAtAcrossStreams(streams, startAtId) {
     return null;
 }
 
-async function handlePlayerRedirect(parsedUrl, response) {
+async function handlePlayerRedirect(parsedUrl, response, originalUrl) {
     if (parsedUrl.type === 'A') {
         var streamsA = response && response.streams;
         if (!Array.isArray(streamsA) || streamsA.length === 0) {
@@ -264,14 +269,14 @@ async function handlePlayerRedirect(parsedUrl, response) {
             }
         }
 
-        navigateToPlayer(streamA.playlistfile, startSecondsA);
+        navigateToPlayer(streamA.playlistfile, startSecondsA, originalUrl);
     } else if (parsedUrl.type === 'C') {
         var streamsC = response && response.streams;
         if (!Array.isArray(streamsC) || streamsC.length === 0 || !streamsC[0] || !streamsC[0].playlistfile) {
             displayError('Player data did not include a stream.');
             return;
         }
-        navigateToPlayer(streamsC[0].playlistfile);
+        navigateToPlayer(streamsC[0].playlistfile, undefined, originalUrl);
     } else if (parsedUrl.type === 'B') {
         try {
             if (!response || response.playlist == null) {
@@ -285,7 +290,7 @@ async function handlePlayerRedirect(parsedUrl, response) {
                 displayError('That horse video index was not found in the playlist.');
                 return;
             }
-            navigateToPlayer(streamUrl);
+            navigateToPlayer(streamUrl, undefined, originalUrl);
         } catch (error) {
             console.error('handlePlayerRedirect error:', error.message);
             displayError('Failed to parse response data.');
