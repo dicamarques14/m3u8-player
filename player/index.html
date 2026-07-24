@@ -26,6 +26,10 @@
       height: 60px;
     }
 
+    .navbar-dark {
+      background-color: #3d3f42;
+    }
+
     #video {
       display: block;
       width: 100%;
@@ -67,7 +71,7 @@
 <body>
 
   <!-- Navbar -->
-  <nav class="navbar navbar-dark bg-dark position-relative">
+  <nav class="navbar navbar-dark position-relative">
     <!-- Home button on the left -->
     <a href="../" class="btn btn-outline-light">⬅️</a>
 
@@ -82,7 +86,7 @@
     </div>
   </nav>
 
-  <video id="video" controls=""></video>
+  <video class="bg-dark" id="video" controls=""></video>
 
   <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/js/bootstrap.min.js"
     integrity="sha384-h0AbiXch4ZDo7tp9hKZ4TsHbi047NrKGLO3SEJAg45jXxnGIfYzk4Si90RDIqNm1"

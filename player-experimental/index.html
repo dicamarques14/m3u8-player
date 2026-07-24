@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🧪 Experimental Player 🧪</title>
+
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css"
+    integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
+
+  <style>
+    body,
+    html {
+      height: 100%;
+      margin: 0;
+    }
+
+    .navbar {
+      height: 60px;
+      background-color: #3d3f42;
+    }
+
+    .navbar-brand.center-abs {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      margin: 0;
+      white-space: nowrap;
+    }
+
+    #canvas-wrap {
+      position: relative;
+      width: 100%;
+      height: calc(100% - 60px);
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    #canvas {
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    #status {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      color: #0f0;
+      background: rgba(0, 0, 0, 0.6);
+      font: 12px monospace;
+      padding: 4px 8px;
+      white-space: pre-wrap;
+      max-height: 40%;
+      overflow-y: auto;
+    }
+
+    #play-btn {
+      position: absolute;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Navbar -->
+  <nav class="navbar navbar-dark position-relative">
+    <a href="../" class="btn btn-outline-light">⬅️</a>
+    <span class="navbar-brand mb-0 h1 center-abs">🧪 Experimental Player 🧪</span>
+  </nav>
+
+  <div id="canvas-wrap">
+    <canvas id="canvas" width="1280" height="720"></canvas>
+    <button id="play-btn" class="btn btn-lg btn-outline-light">▶️ Play</button>
+    <div id="status">Idle.</div>
+  </div>
+
+  <script type="module" src="player.js"></script>
+</body>
+
+</html>
