@@ -46,21 +46,60 @@
     }
 
     #status {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
       color: #0f0;
       background: rgba(0, 0, 0, 0.6);
       font: 12px monospace;
       padding: 4px 8px;
       white-space: pre-wrap;
-      max-height: 40%;
+      max-height: 40vh;
       overflow-y: auto;
     }
 
     #play-btn {
       position: absolute;
+    }
+
+    #bottom-overlay {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #controls {
+      display: none;
+      padding: 6px 10px;
+      background: rgba(0, 0, 0, 0.6);
+    }
+
+    #progress-bar-container {
+      position: relative;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.25);
+      border-radius: 4px;
+      cursor: pointer;
+      touch-action: none;
+    }
+
+    #progress-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 0%;
+      background: #ff8c00;
+      border-radius: 4px;
+    }
+
+    #controls-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 6px;
+      color: #fff;
+      font: 12px monospace;
     }
   </style>
 </head>
@@ -76,7 +115,19 @@
   <div id="canvas-wrap">
     <canvas id="canvas" width="1280" height="720"></canvas>
     <button id="play-btn" class="btn btn-lg btn-outline-light">▶️ Play</button>
-    <div id="status">Idle.</div>
+
+    <div id="bottom-overlay">
+      <div id="controls">
+        <div id="progress-bar-container">
+          <div id="progress-bar"></div>
+        </div>
+        <div id="controls-row">
+          <button id="play-pause-btn" class="btn btn-sm btn-outline-light">▶</button>
+          <span id="time-label">0:00 / 0:00</span>
+        </div>
+      </div>
+      <div id="status">Idle.</div>
+    </div>
   </div>
 
   <script type="module" src="player.js"></script>
