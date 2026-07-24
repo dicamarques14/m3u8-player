@@ -1,5 +1,5 @@
 function parseCMPonyUrl(url) {
-    const clipMPonyRegex = /^https:\/\/www\.clipmyhorse\.tv\/[a-z]{2}_[A-Z]{2}\/(ondemand|horse|live)\/(.+)/;
+    const clipMPonyRegex = /^https:\/\/www\.clipmyhorse\.tv\/[a-z]{2}_[A-Z]{2}\/(ondemand|horse|live|events)\/(.+)/;
 
     // Check if it's a valid CMPony URL
     const isValidCMPonyUrl = clipMPonyRegex.test(url);
@@ -17,14 +17,17 @@ function parseCMPonyUrl(url) {
     // Type C URL regex (live event)
     const typeCRegex = /\/live\/(\d+)(?:\/.+)?/;
 
+    // Type D: event overview page, links out to one or more live arenas (e.g. /events/19807/slug)
+    const typeDRegex = /\/events\/(\d+)(?:\/[^?#]*)?/;
+
     let result = {};
 
     if (typeAPathRegex.test(url)) {
-        const [, eventId, competition] = url.match(typeAPathRegex);
+        const [, eventId, event_channel_id] = url.match(typeAPathRegex);
         result = {
             type: 'A',
             eventId,
-            competition
+            event_channel_id
         };
         try {
             const u = new URL(url);
@@ -49,9 +52,16 @@ function parseCMPonyUrl(url) {
         };
     } else if (typeCRegex.test(url)) {
         // Extract eventId for Type C URL
-        const [, eventId] = url.match(typeCRegex);
+        const [, event_channel_id] = url.match(typeCRegex);
         result = {
             type: 'C',
+            event_channel_id
+        };
+    } else if (typeDRegex.test(url)) {
+        // Extract eventId for Type D URL (overview page, resolved to a live arena later)
+        const [, eventId] = url.match(typeDRegex);
+        result = {
+            type: 'D',
             eventId
         };
     } else {
@@ -81,7 +91,37 @@ async function doFetchWithCors(url, silent) {
     }
 }
 
-function navigateToPlayer(playlistUrl, startSeconds, originalUrl) {
+// Fetches a page's raw HTML through the CORS proxy without assuming it's JSON (unlike doFetchWithCors).
+async function doFetchRawWithCors(url, silent) {
+    try {
+        const response = await fetch(`https://allorigins.thedg.xyz/get?url=${encodeURIComponent(url)}`);
+        if (!response.ok) {
+            throw new Error('Network response was not ok.');
+        }
+        const data = await response.json();
+        return data.contents;
+    } catch (error) {
+        console.error("doFetchRawWithCors", error);
+        if (!silent) {
+            displayError('Could not load the event page. Check your connection or try again.');
+        }
+        return null;
+    }
+}
+
+function looksLikeM3u8(url) {
+    try {
+        return /\.m3u8$/i.test(new URL(url, window.location.href).pathname);
+    } catch (e) {
+        return /\.m3u8(\?|#|$)/i.test(String(url));
+    }
+}
+
+function navigateToPlayer(playlistUrl, startSeconds, originalUrl, playerPath) {
+    if (!looksLikeM3u8(playlistUrl)) {
+        displayError('Resolved stream does not look like an m3u8 playlist: ' + (playlistUrl || '(empty)'));
+        return;
+    }
     var encoded = encodeURIComponent(playlistUrl);
     var params = new URLSearchParams();
     if (typeof startSeconds === 'number' && Number.isFinite(startSeconds) && startSeconds >= 0) {
@@ -91,31 +131,57 @@ function navigateToPlayer(playlistUrl, startSeconds, originalUrl) {
         params.set('orig', originalUrl);
     }
     var query = params.toString();
-    var href = './player/' + (query ? '?' + query : '') + '#' + encoded;
+    var href = (playerPath || './player/') + (query ? '?' + query : '') + '#' + encoded;
     window.location.href = href;
 }
 
-async function fetchPlayerData(url) {
-    const parsedUrl = parseCMPonyUrl(url);
+async function fetchPlayerData(url, playerPath) {
+    let parsedUrl = parseCMPonyUrl(url);
 
     if (!parsedUrl) {
-        displayError('Invalid URL or unable to parse the URL, will try m3u8 link.');
-        window.location.href = './player/#' + encodeURIComponent(url);
+        if (looksLikeM3u8(url)) {
+            window.location.href = (playerPath || './player/') + '#' + encodeURIComponent(url);
+        } else {
+            displayError('Could not parse this URL as a clipmyhorse.tv link, and it does not look like a direct .m3u8 URL: ' + url);
+        }
         return;
     }
 
     let playerdataUrl = '';
 
+    if (parsedUrl.type === 'C' || parsedUrl.type === 'D') {
+        // Both a live page (/live/<id>/slug) and an event overview page (/events/<id>/slug) embed
+        // a <cmh-video-player-live data-path="playerdata/<eventId>/<event_channel_id>?..."> tag.
+        // Scraping it is more accurate than guessing from the URL (handles multi-arena overview
+        // pages correctly), so try it for both types; only the trailing id pair matters.
+        const html = await doFetchRawWithCors(url, true);
+        const dataPathMatch = html && html.match(/<cmh-video-player-live[^>]*\bdata-path="([^"]+)"/);
+        const idsMatch = dataPathMatch && dataPathMatch[1].match(/playerdata\/(\d+)\/(\d+)/);
+
+        if (idsMatch) {
+            const [, eventId, event_channel_id] = idsMatch;
+            parsedUrl = { type: 'C', eventId, event_channel_id };
+        } else if (parsedUrl.type === 'C') {
+            // Fallback: confirmed the server ignores the first id entirely, so a /live/ URL can
+            // skip scraping and go straight from its own event_channel_id.
+            parsedUrl = { type: 'C', eventId: '14178', event_channel_id: parsedUrl.event_channel_id };
+        } else {
+            displayError('Could not find a live player on this event page (eventId ' + parsedUrl.eventId + ').');
+            return;
+        }
+    }
+
     // Determine playerdata URL based on the type
     switch (parsedUrl.type) {
         case 'A':
-            playerdataUrl = `https://www.clipmyhorse.tv/en_US/archive/playerdata/${parsedUrl.eventId}/${parsedUrl.competition}`;
+            playerdataUrl = `https://www.clipmyhorse.tv/en_US/archive/playerdata/${parsedUrl.eventId}/${parsedUrl.event_channel_id}`;
             break;
         case 'B':
             playerdataUrl = `https://www.clipmyhorse.tv/en_US/playlist/playerdata/${parsedUrl.horse}`;
             break;
         case 'C':
-            playerdataUrl = `https://www.clipmyhorse.tv/en_US/live/playerdata/14178/${parsedUrl.eventId}`;
+            //<any_valid_event_ID>/event_channel_id
+            playerdataUrl = `https://www.clipmyhorse.tv/en_US/live/playerdata/14178/${parsedUrl.event_channel_id}`;
             break;
         default:
             displayError('Unknown URL type');
@@ -128,7 +194,7 @@ async function fetchPlayerData(url) {
         if (!response) {
             return;
         }
-        await handlePlayerRedirect(parsedUrl, response, url);
+        await handlePlayerRedirect(parsedUrl, response, url, playerPath);
     } catch (error) {
         console.error('fetchPlayerData error:', error.message);
         displayError('Failed to fetch player data.');
@@ -227,7 +293,7 @@ async function findStreamByStartAtAcrossStreams(streams, startAtId) {
     return null;
 }
 
-async function handlePlayerRedirect(parsedUrl, response, originalUrl) {
+async function handlePlayerRedirect(parsedUrl, response, originalUrl, playerPath) {
     if (parsedUrl.type === 'A') {
         var streamsA = response && response.streams;
         if (!Array.isArray(streamsA) || streamsA.length === 0) {
@@ -269,14 +335,14 @@ async function handlePlayerRedirect(parsedUrl, response, originalUrl) {
             }
         }
 
-        navigateToPlayer(streamA.playlistfile, startSecondsA, originalUrl);
+        navigateToPlayer(streamA.playlistfile, startSecondsA, originalUrl, playerPath);
     } else if (parsedUrl.type === 'C') {
         var streamsC = response && response.streams;
         if (!Array.isArray(streamsC) || streamsC.length === 0 || !streamsC[0] || !streamsC[0].playlistfile) {
             displayError('Player data did not include a stream.');
             return;
         }
-        navigateToPlayer(streamsC[0].playlistfile, undefined, originalUrl);
+        navigateToPlayer(streamsC[0].playlistfile, undefined, originalUrl, playerPath);
     } else if (parsedUrl.type === 'B') {
         try {
             if (!response || response.playlist == null) {
@@ -290,7 +356,7 @@ async function handlePlayerRedirect(parsedUrl, response, originalUrl) {
                 displayError('That horse video index was not found in the playlist.');
                 return;
             }
-            navigateToPlayer(streamUrl, undefined, originalUrl);
+            navigateToPlayer(streamUrl, undefined, originalUrl, playerPath);
         } catch (error) {
             console.error('handlePlayerRedirect error:', error.message);
             displayError('Failed to parse response data.');
@@ -298,7 +364,7 @@ async function handlePlayerRedirect(parsedUrl, response, originalUrl) {
     }
 }
 
-// Helper to display error messages and re-enable the play button
+// Helper to display error messages and re-enable the play buttons
 function displayError(message) {
     console.warn("fetchPlayerData", message);
     var msgEl = document.getElementById('alert-message');
@@ -307,6 +373,7 @@ function displayError(message) {
     }
     document.getElementById('alert-box').style.display = 'block';
     $('#play-btn').prop('disabled', false);
+    $('#play-exp-btn').prop('disabled', false);
 }
 
 $(window).on('load', function () {
@@ -326,6 +393,12 @@ $(window).on('load', function () {
         $('#play-btn').prop('disabled', true);
         localStorage.setItem('m3u8-link', $('#m3u8-placeholder')[0].value);
         fetchPlayerData($('#m3u8-placeholder')[0].value);
+    });
+    $('#play-exp-btn').on('click', function () {
+        document.getElementById('alert-box').style.display = 'none';
+        $('#play-exp-btn').prop('disabled', true);
+        localStorage.setItem('m3u8-link', $('#m3u8-placeholder')[0].value);
+        fetchPlayerData($('#m3u8-placeholder')[0].value, './player-experimental/');
     });
 });
 

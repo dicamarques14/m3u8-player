@@ -69,7 +69,7 @@
         <div class="row h-100 justify-content-center align-items-center">
             <div class="col-12" id="text-box">
                 <div class="text-center w-100">
-                    <h2 class="page-name">🏴‍☠️🐎Clip My Pony Player - v3.1🐎🏴‍☠️</h2>
+                    <h2 class="page-name">🏴‍☠️🐎Clip My Pony Player - v3.2🐎🏴‍☠️</h2>
                     <h3 class="page-name"><span class="unicorn-rgb">🦄</span>Unicorn Edition<span
                             class="unicorn-rgb">🦄</span></h3>
                     <!-- Alert section -->
@@ -79,13 +79,15 @@
                             <span aria-hidden="true">&times;</span>
                         </button>
                     </div>
-                    <div class="input-group mx-auto">
-                        <input type="text" class="form-control" placeholder="Paste the m3u8 link here"
+                    <div class="mx-auto" style="max-width: 500px;">
+                        <input type="text" class="form-control mb-2" placeholder="Paste the m3u8 link here"
                             id="m3u8-placeholder">
-                        <span class="input-group-btn">
-                            <button class="btn btn-secondary" type="button" id="paste-btn">Paste</button>
-                            <button class="btn btn-success" type="button" id="play-btn">Play</button>
-                        </span>
+                        <div class="btn-group d-flex" role="group">
+                            <button class="btn btn-secondary flex-fill" type="button" id="paste-btn">Paste</button>
+                            <button class="btn btn-success flex-fill" type="button" id="play-btn">Play</button>
+                            <button class="btn btn-warning flex-fill" type="button" id="play-exp-btn">🧪 Exp.
+                                Player</button>
+                        </div>
                     </div>
                 </div>
             </div>

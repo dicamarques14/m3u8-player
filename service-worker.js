@@ -52,6 +52,17 @@
     }
 
     /**
+     *  @Lifecycle Install
+     *  Activate the new SW immediately instead of waiting for all old tabs to close,
+     *  so pages can force-adopt it (see player/player.js) right after a deploy.
+     *
+     *  waitUntil(): installing ====> installed
+     */
+    self.addEventListener('install', event => {
+      event.waitUntil(self.skipWaiting())
+    })
+
+    /**
      *  @Lifecycle Activate
      *  New one activated when old isnt being used.
      *
