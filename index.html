@@ -14,14 +14,11 @@
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/js/bootstrap.min.js"
         integrity="sha384-h0AbiXch4ZDo7tp9hKZ4TsHbi047NrKGLO3SEJAg45jXxnGIfYzk4Si90RDIqNm1"
         crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="shared/common.css">
+    <script type="text/javascript" src="shared/link-params.js"></script>
     <script type="text/javascript" src="main.js"></script>
     <script>navigator.serviceWorker.register("service-worker.js")</script>
     <style>
-        body,
-        html {
-            height: 100%;
-        }
-
         #text-box {
             display: flex;
             justify-content: center;
@@ -46,20 +43,22 @@
             margin-top: 1em;
         }
 
-        /* Hue cycle reads as RGB-ish rainbow on emoji (gradient clip often hides glyphs). */
-        @keyframes unicorn-rgb-hue {
-            from {
-                filter: hue-rotate(0deg) saturate(1.45) brightness(1.05);
-            }
-
-            to {
-                filter: hue-rotate(360deg) saturate(1.45) brightness(1.05);
-            }
+        #build-stamp {
+            position: fixed;
+            right: 0.5em;
+            bottom: 0.4em;
+            opacity: 0.5;
         }
 
-        .unicorn-rgb {
-            display: inline-block;
-            animation: unicorn-rgb-hue 4s linear infinite;
+        #picker-list {
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        /* Rows are divs (they can contain their own ✕ button), so restore button affordances. */
+        .picker-row {
+            text-align: left;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -69,7 +68,7 @@
         <div class="row h-100 justify-content-center align-items-center">
             <div class="col-12" id="text-box">
                 <div class="text-center w-100">
-                    <h2 class="page-name">🏴‍☠️🐎Clip My Pony Player - v3.2🐎🏴‍☠️</h2>
+                    <h2 class="page-name">🏴‍☠️🐎Clip My Pony Player🐎🏴‍☠️</h2>
                     <h3 class="page-name"><span class="unicorn-rgb">🦄</span>Unicorn Edition<span
                             class="unicorn-rgb">🦄</span></h3>
                     <!-- Alert section -->
@@ -83,12 +82,36 @@
                         <input type="text" class="form-control mb-2" placeholder="Paste the m3u8 link here"
                             id="m3u8-placeholder">
                         <div class="btn-group d-flex" role="group">
+                            <button class="btn btn-secondary flex-fill" type="button" id="history-btn"
+                                title="Recent links">🕘</button>
                             <button class="btn btn-secondary flex-fill" type="button" id="paste-btn">Paste</button>
                             <button class="btn btn-success flex-fill" type="button" id="play-btn">Play</button>
                             <button class="btn btn-warning flex-fill" type="button" id="play-exp-btn">🧪 Exp.
                                 Player</button>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Deploy stamp: the CI workflow rewrites __BUILD__ with the short commit sha. Left as the
+         literal placeholder when served locally, and hidden by main.js in that case. -->
+    <small class="text-muted" id="build-stamp">__BUILD__</small>
+
+    <!-- Picker: event competitions, or a competition's horse/rider list -->
+    <div class="modal fade" id="picker-modal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="picker-title">Pick</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <input type="text" class="form-control mb-2" id="picker-filter" placeholder="Filter…">
+                    <div class="list-group" id="picker-list"></div>
                 </div>
             </div>
         </div>

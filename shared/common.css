@@ -1,0 +1,37 @@
+/* Shared across index.html, player/ and player-experimental/. Page-specific rules stay
+   in each page's own <style> block. */
+
+body,
+html {
+    height: 100%;
+}
+
+.navbar {
+    height: 60px;
+    background-color: #3d3f42;
+}
+
+/* True center regardless of side buttons' widths */
+.navbar-brand.center-abs {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+    white-space: nowrap;
+}
+
+/* Hue cycle reads as RGB-ish rainbow on emoji (gradient clip often hides glyphs). */
+@keyframes unicorn-rgb-hue {
+    from {
+        filter: hue-rotate(0deg) saturate(1.45) brightness(1.05);
+    }
+
+    to {
+        filter: hue-rotate(360deg) saturate(1.45) brightness(1.05);
+    }
+}
+
+.unicorn-rgb {
+    display: inline-block;
+    animation: unicorn-rgb-hue 4s linear infinite;
+}

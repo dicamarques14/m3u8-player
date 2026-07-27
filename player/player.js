@@ -25,37 +25,10 @@ function destroyHls() {
     }
 }
 
-function parseM3u8FromHash() {
-    var raw = window.location.hash.slice(1);
-    if (!raw) {
-        return undefined;
-    }
-    try {
-        return decodeURIComponent(raw);
-    } catch (e) {
-        return raw;
-    }
-}
-
-function startSecondsFromQuery() {
-    var t = new URLSearchParams(window.location.search).get('t');
-    if (t === null || t === '') {
-        return undefined;
-    }
-    var n = parseFloat(t);
-    return Number.isFinite(n) ? n : undefined;
-}
-
-function formatTimeParam(seconds) {
-    if (!Number.isFinite(seconds) || seconds < 0.05) {
-        return null;
-    }
-    var rounded = Math.round(seconds * 10) / 10;
-    if (Math.abs(rounded - Math.round(rounded)) < 1e-6) {
-        return String(Math.round(rounded));
-    }
-    return String(rounded);
-}
+// Link shape helpers live in ../shared/link-params.js so both players agree on it.
+var parseM3u8FromHash = CMP.parseM3u8FromHash;
+var startSecondsFromQuery = CMP.startSecondsFromQuery;
+var formatTimeParam = CMP.formatTimeParam;
 
 function buildPlayerUrlWithCurrentTime() {
     var u = new URL(window.location.href);
@@ -170,19 +143,17 @@ window.addEventListener('pagehide', function (event) {
     destroyHls();
 });
 
-function originalUrlFromQuery() {
-    var orig = new URLSearchParams(window.location.search).get('orig');
-    return orig || null;
-}
-
 $(window).on('load', function () {
     playM3u8(parseM3u8FromHash(), startSecondsFromQuery());
 
-    var originalUrl = originalUrlFromQuery();
+    var originalUrl = CMP.originalUrlFromQuery();
     if (originalUrl) {
         $('#original-btn').show().click(function () {
             window.open(originalUrl, '_blank');
         });
+        // Home goes back carrying the source URL, so the picker reopens on the same
+        // event / competition instead of an empty box.
+        $('#home-btn').attr('href', '../?u=' + encodeURIComponent(originalUrl));
     }
     $('#video').on('click', function () { this.paused ? this.play() : this.pause(); });
     $('#video').one('loadedmetadata', function () {

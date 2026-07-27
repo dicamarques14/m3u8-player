@@ -1,37 +1,10 @@
 import { Input, UrlSource, ALL_FORMATS, CanvasSink, AudioBufferSink } from 'https://cdn.jsdelivr.net/npm/mediabunny/+esm';
 
-// Mirrors parseM3u8FromHash()/startSecondsFromQuery() in ../player/player.js so both
-// players accept the exact same "#<encoded m3u8 url>" + "?t=<seconds>" link shape.
-function parseM3u8FromHash() {
-    var raw = window.location.hash.slice(1);
-    if (!raw) {
-        return undefined;
-    }
-    try {
-        return decodeURIComponent(raw);
-    } catch (e) {
-        return raw;
-    }
-}
-
-function startSecondsFromQuery() {
-    var t = new URLSearchParams(window.location.search).get('t');
-    if (t === null || t === '') {
-        return undefined;
-    }
-    var n = parseFloat(t);
-    return Number.isFinite(n) ? n : undefined;
-}
-
-function formatSeconds(s) {
-    s = Math.max(0, s || 0);
-    var h = Math.floor(s / 3600);
-    var m = Math.floor((s % 3600) / 60);
-    var ss = Math.floor(s % 60);
-    var mm = String(m).padStart(2, '0');
-    var sss = String(ss).padStart(2, '0');
-    return h > 0 ? (h + ':' + mm + ':' + sss) : (m + ':' + sss);
-}
+// Link shape + clock formatting come from ../shared/link-params.js (loaded as a classic
+// script before this module), so both players accept the exact same link.
+var parseM3u8FromHash = CMP.parseM3u8FromHash;
+var startSecondsFromQuery = CMP.startSecondsFromQuery;
+var formatSeconds = CMP.formatClock;
 
 // --- DOM ---
 var canvas = document.getElementById('canvas');
@@ -368,6 +341,12 @@ playBtn.addEventListener('click', function () {
 });
 
 window.addEventListener('load', function () {
+    // Home carries the source URL back so the picker reopens on the same event / competition.
+    var originalUrl = CMP.originalUrlFromQuery();
+    if (originalUrl) {
+        document.getElementById('home-btn').href = '../?u=' + encodeURIComponent(originalUrl);
+    }
+
     var m3u8Url = parseM3u8FromHash();
     setStatus(m3u8Url
         ? 'Ready. Click Play to start (experimental WebCodecs + canvas pipeline).'
