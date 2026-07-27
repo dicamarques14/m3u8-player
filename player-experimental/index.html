@@ -8,25 +8,14 @@
 
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css"
     integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
+  <link rel="stylesheet" href="../shared/common.css">
+  <!-- Classic script (not a module) so it runs before player.js and exposes the CMP global to it -->
+  <script src="../shared/link-params.js"></script>
 
   <style>
     body,
     html {
-      height: 100%;
       margin: 0;
-    }
-
-    .navbar {
-      height: 60px;
-      background-color: #3d3f42;
-    }
-
-    .navbar-brand.center-abs {
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
-      margin: 0;
-      white-space: nowrap;
     }
 
     #canvas-wrap {
@@ -108,7 +97,7 @@
 
   <!-- Navbar -->
   <nav class="navbar navbar-dark position-relative">
-    <a href="../" class="btn btn-outline-light">⬅️</a>
+    <a href="../" class="btn btn-outline-light" id="home-btn">⬅️</a>
     <span class="navbar-brand mb-0 h1 center-abs">🧪 Experimental Player 🧪</span>
   </nav>
 

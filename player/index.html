@@ -10,24 +10,15 @@
     integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <script src="mousetrap.min.js" charset="utf-8"></script>
+  <script src="../shared/link-params.js"></script>
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css"
     integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
+  <link rel="stylesheet" href="../shared/common.css">
 
   <style>
-    /* Set body and html to take up full height */
     body,
     html {
-      height: 100%;
       margin: 0;
-    }
-
-    /* Set navbar height and make video take up the rest */
-    .navbar {
-      height: 60px;
-    }
-
-    .navbar-dark {
-      background-color: #3d3f42;
     }
 
     #video {
@@ -41,30 +32,6 @@
     .navbar .share-btn {
       margin-left: auto;
     }
-
-    /* True center regardless of side buttons' widths */
-    .navbar-brand.center-abs {
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
-      margin: 0;
-      white-space: nowrap;
-    }
-
-    @keyframes unicorn-rgb-hue {
-      from {
-        filter: hue-rotate(0deg) saturate(1.45) brightness(1.05);
-      }
-
-      to {
-        filter: hue-rotate(360deg) saturate(1.45) brightness(1.05);
-      }
-    }
-
-    .unicorn-rgb {
-      display: inline-block;
-      animation: unicorn-rgb-hue 4s linear infinite;
-    }
   </style>
 </head>
 
@@ -72,8 +39,8 @@
 
   <!-- Navbar -->
   <nav class="navbar navbar-dark position-relative">
-    <!-- Home button on the left -->
-    <a href="../" class="btn btn-outline-light">⬅️</a>
+    <!-- Home button on the left; player.js appends ?u=<source url> so it reopens the picker -->
+    <a href="../" class="btn btn-outline-light" id="home-btn">⬅️</a>
 
     <!-- Absolutely centered so side buttons' widths don't skew it -->
     <span class="navbar-brand mb-0 h1 center-abs"><span class="unicorn-rgb">🦄</span> Unicorn Player <span
