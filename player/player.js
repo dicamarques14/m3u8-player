@@ -2,22 +2,6 @@ var video = document.getElementById('video');
 var hlsInstance = null;
 var allowPlaybackUrlSync = false;
 
-// Force-check for a newer service worker on every visit and reload once it takes over, so the
-// player page doesn't get stuck on a stale cached bundle (the SW's stale-while-revalidate serves
-// the OLD cached copy immediately and only refreshes the cache for the *next* load otherwise).
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistration().then(function (reg) {
-        if (!reg) {
-            return;
-        }
-        reg.update();
-        navigator.serviceWorker.addEventListener('controllerchange', function onControllerChange() {
-            navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
-            window.location.reload();
-        });
-    });
-}
-
 function destroyHls() {
     if (hlsInstance) {
         hlsInstance.destroy();

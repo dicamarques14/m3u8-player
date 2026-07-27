@@ -16,8 +16,51 @@
     <link rel="stylesheet" href="shared/common.css">
     <script type="text/javascript" src="shared/link-params.js"></script>
     <script type="text/javascript" src="main.js"></script>
-    <script>navigator.serviceWorker.register("service-worker.js")</script>
+    <script>
+        // The service worker's stale-while-revalidate was the source of the double-refresh-to-see-
+        // changes behavior; unregister it (and drop its cache) for anyone who already has it installed.
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function (regs) {
+                regs.forEach(function (reg) { reg.unregister(); });
+            });
+            if ('caches' in window) {
+                caches.delete('pwa-cache');
+            }
+        }
+    </script>
     <style>
+        /* Rainbow background: https://www.joshwcomeau.com/react/rainbow-button/ — a diagonal,
+           corner-to-corner gradient that cycles hue so the colors keep moving. */
+        body {
+            background: #14171a;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background: linear-gradient(135deg,
+                    #ff2400, #e81d8c, #7b2ff7, #00c2ff, #00e0a8, #a8ff00, #ffb700, #ff2400);
+            filter: saturate(1.4);
+            animation: rainbow-hue 14s linear infinite;
+        }
+
+        @keyframes rainbow-hue {
+            to {
+                filter: saturate(1.4) hue-rotate(360deg);
+            }
+        }
+
+        /* Glass card so the h2/h3/form stay legible over whatever hue is behind them. */
+        #text-box>.text-center {
+            background: rgba(20, 23, 26, 0.55);
+            backdrop-filter: blur(10px);
+            border-radius: 1.5em;
+            padding: 1.5em 1em;
+        }
+
         #text-box {
             display: flex;
             justify-content: center;
