@@ -90,6 +90,43 @@ function playPause() {
     video.paused ? video.play() : video.pause();
 }
 
+function flashSeek(el) {
+    el.classList.remove('show');
+    // Force reflow so re-adding the class restarts the fade-out transition on a repeat tap.
+    void el.offsetWidth;
+    el.classList.add('show');
+    clearTimeout(el._hideTimer);
+    el._hideTimer = setTimeout(function () { el.classList.remove('show'); }, 500);
+}
+
+function seekBy(delta) {
+    var next = video.currentTime + delta;
+    var end = video.duration;
+    video.currentTime = Number.isFinite(end) && end > 0 ? Math.min(Math.max(next, 0), end) : Math.max(next, 0);
+    flashSeek(delta < 0 ? document.getElementById('seek-flash-back') : document.getElementById('seek-flash-fwd'));
+}
+
+// YouTube-style: single tap toggles play/pause, double tap in the left/right third seeks
+// +/-10s. A single click is held for the double-click window so a following second click
+// can cancel it instead of toggling play/pause twice (which would just flicker back).
+var clickTimer = null;
+$('#video').on('click', function () {
+    clearTimeout(clickTimer);
+    clickTimer = setTimeout(playPause, 250);
+});
+$('#video').on('dblclick', function (e) {
+    clearTimeout(clickTimer);
+    var rect = this.getBoundingClientRect();
+    var frac = (e.clientX - rect.left) / rect.width;
+    if (frac < 1 / 3) {
+        seekBy(-10);
+    } else if (frac > 2 / 3) {
+        seekBy(10);
+    } else {
+        playPause();
+    }
+});
+
 function volumeUp() {
     if (video.volume <= 0.9) video.volume += 0.1;
 }
@@ -139,7 +176,6 @@ $(window).on('load', function () {
         // event / competition instead of an empty box.
         $('#home-btn').attr('href', '../?u=' + encodeURIComponent(originalUrl));
     }
-    $('#video').on('click', function () { this.paused ? this.play() : this.pause(); });
     $('#video').one('loadedmetadata', function () {
         allowPlaybackUrlSync = true;
     });

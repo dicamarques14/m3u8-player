@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
   <title>🧪 Experimental Player 🧪</title>
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css"
@@ -18,7 +19,7 @@
       margin: 0;
     }
 
-    #canvas-wrap {
+    #player-container {
       position: relative;
       width: 100%;
       height: calc(100% - 60px);
@@ -29,12 +30,63 @@
       overflow: hidden;
     }
 
-    #canvas {
-      max-width: 100%;
-      max-height: 100%;
+    /* Our own height:calc(100% - 60px) above has higher specificity than the UA's :fullscreen
+       sizing, so without this override the container (and the canvas capped to its box below)
+       stays at its pre-fullscreen size instead of filling the screen. */
+    #player-container:fullscreen {
+      width: 100vw;
+      height: 100vh;
     }
 
-    #status {
+    /* width/height 100% + object-fit (not max-width/max-height, which only ever shrinks the
+       canvas down to its native pixel size and never scales it up to fill a larger box) is what
+       makes the canvas actually grow to fill the container in fullscreen. */
+    #canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    #load-btn {
+      position: absolute;
+    }
+
+    /* YouTube-style double-tap-to-seek flash, in the tapped third of the video. */
+    .seek-flash {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 33.33%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4em;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 50%/8%;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+
+    .seek-flash.show {
+      opacity: 1;
+      transition: opacity 0s;
+    }
+
+    #seek-flash-back {
+      left: 0;
+    }
+
+    #seek-flash-fwd {
+      right: 0;
+    }
+
+    #status-overlay {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      right: 8px;
       color: #0f0;
       background: rgba(0, 0, 0, 0.6);
       font: 12px monospace;
@@ -42,53 +94,121 @@
       white-space: pre-wrap;
       max-height: 40vh;
       overflow-y: auto;
+      pointer-events: none;
     }
 
-    #play-btn {
-      position: absolute;
-    }
-
-    #bottom-overlay {
-      position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      display: flex;
-      flex-direction: column;
-    }
-
+    /* Mirrors https://mediabunny.dev/examples/media-player/ — a fading control bar over the
+       video, hidden after 2s of no pointer movement (see showControlsTemporarily in player.ts). */
     #controls {
-      display: none;
-      padding: 6px 10px;
-      background: rgba(0, 0, 0, 0.6);
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      bottom: 8px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 10px;
+      background: rgba(24, 24, 24, 0.6);
+      border-radius: 10px;
+      color: #fff;
+      opacity: 0;
+      transition: opacity 0.15s;
     }
 
-    #progress-bar-container {
+    #controls button {
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 1.1em;
+      line-height: 1;
+      padding: 6px;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+
+    #controls button:hover {
+      transform: scale(1.15);
+    }
+
+    .bar-container {
       position: relative;
-      height: 8px;
+      height: 6px;
       background: rgba(255, 255, 255, 0.25);
-      border-radius: 4px;
+      border-radius: 3px;
       cursor: pointer;
       touch-action: none;
     }
 
-    #progress-bar {
+    .bar-fill {
       position: absolute;
       top: 0;
       left: 0;
       height: 100%;
-      width: 0%;
-      background: #ff8c00;
-      border-radius: 4px;
+      border-radius: 3px;
+      background: #e9e9e9;
     }
 
-    #controls-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-top: 6px;
-      color: #fff;
+    .bar-container:hover .bar-fill {
+      background: #fff;
+    }
+
+    /* Scrub/volume thumb: a dot pinned to the right edge of the filled portion. */
+    .bar-fill::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      right: 0;
+      width: 12px;
+      height: 12px;
+      background: inherit;
+      border-radius: 50%;
+      transform: translate(50%, -50%);
+      opacity: 0;
+      transition: opacity 0.1s;
+    }
+
+    .bar-container:hover .bar-fill::after {
+      opacity: 1;
+    }
+
+    #volume-bar-container {
+      width: 70px;
+    }
+
+    #progress-bar-container {
+      flex: 1;
+      margin: 0 4px;
+    }
+
+    #current-time,
+    #duration-time {
       font: 12px monospace;
+      min-width: 3.5em;
+      text-align: center;
+    }
+
+    #live-dot {
+      display: none;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ff3b30;
+      border: none;
+      cursor: pointer;
+      animation: live-pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes live-pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.4;
+      }
     }
   </style>
 </head>
@@ -99,23 +219,35 @@
   <nav class="navbar navbar-dark position-relative">
     <a href="../" class="btn btn-outline-light" id="home-btn">⬅️</a>
     <span class="navbar-brand mb-0 h1 center-abs">🧪 Experimental Player 🧪</span>
+    <div class="ml-auto d-flex align-items-center">
+      <button class="btn btn-outline-light" id="original-btn" style="display:none;">🌐</button>
+      <button class="btn btn-outline-light ml-2" id="share-btn">🔗</button>
+    </div>
   </nav>
 
-  <div id="canvas-wrap">
-    <canvas id="canvas" width="1280" height="720"></canvas>
-    <button id="play-btn" class="btn btn-lg btn-outline-light">▶️ Play</button>
+  <div id="player-container">
+    <canvas id="canvas" width="1280" height="720" style="display:none;"></canvas>
+    <button id="load-btn" class="btn btn-lg btn-outline-light">▶️ Play</button>
+    <div id="status-overlay">Idle.</div>
+    <div class="seek-flash" id="seek-flash-back">⏪ 10s</div>
+    <div class="seek-flash" id="seek-flash-fwd">10s ⏩</div>
 
-    <div id="bottom-overlay">
-      <div id="controls">
-        <div id="progress-bar-container">
-          <div id="progress-bar"></div>
-        </div>
-        <div id="controls-row">
-          <button id="play-pause-btn" class="btn btn-sm btn-outline-light">▶</button>
-          <span id="time-label">0:00 / 0:00</span>
-        </div>
+    <div id="controls">
+      <button id="play-pause-btn" title="Play/pause (space)">⏯️</button>
+
+      <button id="volume-btn" title="Mute (m)">🔊</button>
+      <div class="bar-container" id="volume-bar-container">
+        <div class="bar-fill" id="volume-bar" style="width:70%;"></div>
       </div>
-      <div id="status">Idle.</div>
+
+      <span id="current-time">0:00</span>
+      <div class="bar-container" id="progress-bar-container">
+        <div class="bar-fill" id="progress-bar" style="width:0%;"></div>
+      </div>
+      <span id="duration-time">0:00</span>
+
+      <button id="live-dot" title="Seek to live edge"></button>
+      <button id="fullscreen-btn" title="Fullscreen (f)">⛶</button>
     </div>
   </div>
 

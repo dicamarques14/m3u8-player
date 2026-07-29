@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
   <title>🦄 Unicorn Player 🦄</title>
 
   <script src="https://code.jquery.com/jquery-3.7.1.min.js" crossorigin="anonymous"></script>
@@ -20,11 +21,48 @@
       margin: 0;
     }
 
-    #video {
-      display: block;
+    #video-wrap {
+      position: relative;
       width: 100%;
       height: calc(100% - 60px);
       /* Subtract the navbar height */
+    }
+
+    #video {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* YouTube-style double-tap-to-seek flash, in the tapped third of the video. */
+    .seek-flash {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 33.33%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4em;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 50%/8%;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+
+    .seek-flash.show {
+      opacity: 1;
+      transition: opacity 0s;
+    }
+
+    #seek-flash-back {
+      left: 0;
+    }
+
+    #seek-flash-fwd {
+      right: 0;
     }
 
     /* Ensure the share button stays on the right */
@@ -52,7 +90,11 @@
     </div>
   </nav>
 
-  <video class="bg-dark" id="video" controls=""></video>
+  <div id="video-wrap">
+    <video class="bg-dark" id="video" controls=""></video>
+    <div class="seek-flash" id="seek-flash-back">⏪ 10s</div>
+    <div class="seek-flash" id="seek-flash-fwd">10s ⏩</div>
+  </div>
 
   <!-- Bootstrap 4's JS plugins (dropdown/tooltip/popover) hard-require Popper at load time; the
        modal/alert/close used here don't need it, but omitting it throws in the console anyway. -->

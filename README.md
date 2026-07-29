@@ -14,6 +14,20 @@ This website is tested on Google Chrome and Firefox desktop web browsers. Not te
 * `up` and `down` - Volume
 * `left` and `right` - Seek by 5 secs
 * `f` - Full screen
+## player-experimental/
+
+The rest of the site is plain static JS, no build step. `player-experimental/` is the one
+exception: its UI/playback engine is TypeScript against `mediabunny`'s real types, compiled
+locally with esbuild into the committed `player-experimental/player.js` (still just a static
+file at deploy time — GitHub Pages needs no build step).
+
+After editing `player-experimental/src/player.ts`:
+```
+npm install
+npm run typecheck:experimental   # tsc --noEmit
+npm run build:experimental       # writes player-experimental/player.js
+```
+
 ## Known issues
 * The page is served over `https`. So if the stream url is not `https` but `http`, the browser may throw a warning. The content fails to load. Disable web security in Chrome to get around this.
 * CORS issue - If the media server blocks other IPs saying CORS. You might have to install this chrome extension to get around this - https://chrome.google.com/webstore/detail/allow-cors-access-control/lhobafahddgcelffkeicbaginigeejlf
