@@ -10,23 +10,23 @@ If it doesn't work, then raise an issue.
 If you want live streams legally then visit this repo - https://github.com/notanewbie/LegalStream
 
 This website is tested on Google Chrome and Firefox desktop web browsers. Not tested on android and iOS. Raise an issue if it doesn't work.
-## Keyboard shortcuts
-* `up` and `down` - Volume
-* `left` and `right` - Seek by 5 secs
-* `f` - Full screen
-## player-experimental/
+## Player
 
-The rest of the site is plain static JS, no build step. `player-experimental/` is the one
-exception: its UI/playback engine is TypeScript against `mediabunny`'s real types, compiled
-locally with esbuild into the committed `player-experimental/player.js` (still just a static
-file at deploy time — GitHub Pages needs no build step).
+`player/` is a [movi-player](https://github.com/mrujjwalg/movi-player) (`<movi-player>`, WebCodecs +
+FFmpeg-WASM; HLS through its bundled Shaka). Its controls, keyboard shortcuts and gestures are
+movi-player's own; the page enables `fastseek` (arrow keys and double-tap on the left/right third
+seek ±10s).
+WebCodecs needs a secure context: HTTPS or `localhost` (not a LAN IP over plain HTTP).
 
-After editing `player-experimental/src/player.ts`:
+The rest of the site is plain static JS. The player page is TypeScript (`player/src/player.ts`),
+bundled with esbuild into `player/player.js`, and `movi.wasm` is copied next to it. Neither is
+committed; CI builds them on deploy. To run locally:
 ```
 npm install
-npm run typecheck:experimental   # tsc --noEmit
-npm run build:experimental       # writes player-experimental/player.js
+npm run typecheck:player   # tsc --noEmit
+npm run build:player       # writes player/player.js and player/movi.wasm
 ```
+then serve the repo root with any static server (e.g. `python3 -m http.server 8080`).
 
 ## Known issues
 * The page is served over `https`. So if the stream url is not `https` but `http`, the browser may throw a warning. The content fails to load. Disable web security in Chrome to get around this.

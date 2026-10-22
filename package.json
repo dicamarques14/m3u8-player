@@ -3,11 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:experimental": "esbuild player-experimental/src/player.ts --bundle --format=esm --outfile=player-experimental/player.js",
-    "typecheck:experimental": "tsc --noEmit -p tsconfig.json"
+    "build:player": "esbuild player/src/player.ts --bundle --format=esm --outfile=player/player.js && cp node_modules/movi-player/dist/movi.wasm player/movi.wasm",
+    "typecheck:player": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "mediabunny": "^1.51.0"
+    "movi-player": "0.4.1"
   },
   "devDependencies": {
     "esbuild": "^0.24.0",

@@ -40,13 +40,14 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Typecheck player-experimental
-        run: npm run typecheck:experimental
-      # Rebuilds player-experimental/player.js from src/ so the deploy can never ship a copy
-      # that's stale relative to a committed source change (the committed player.js is only
-      # a dev convenience, not the deploy's source of truth).
-      - name: Build player-experimental
-        run: npm run build:experimental
+      - name: Typecheck player
+        run: npm run typecheck:player
+      # Produces player/player.js and player/movi.wasm from player/src (neither is committed).
+      - name: Build player
+        run: npm run build:player
+      # The whole repo is uploaded below; the bundle already contains what it needs.
+      - name: Drop node_modules from the artifact
+        run: rm -rf node_modules
       - name: Stamp build
         run: sed -i "s/__BUILD__/${GITHUB_SHA::7}/" index.html
       - name: Upload artifact

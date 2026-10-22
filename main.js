@@ -131,7 +131,10 @@ function playerdataUrlForParsed(parsedUrl) {
     }
 }
 
-function navigateToPlayer(playlistUrl, startSeconds, originalUrl, playerPath) {
+// The one player page (movi-player, see player/src/player.ts).
+var PLAYER_PATH = './player/';
+
+function navigateToPlayer(playlistUrl, startSeconds, originalUrl) {
     if (!looksLikeM3u8(playlistUrl)) {
         displayError('Resolved stream does not look like an m3u8 playlist: ' + (playlistUrl || '(empty)'));
         return;
@@ -145,16 +148,16 @@ function navigateToPlayer(playlistUrl, startSeconds, originalUrl, playerPath) {
         params.set('orig', originalUrl);
     }
     var query = params.toString();
-    var href = (playerPath || './player/') + (query ? '?' + query : '') + '#' + encoded;
+    var href = PLAYER_PATH + (query ? '?' + query : '') + '#' + encoded;
     window.location.href = href;
 }
 
-async function fetchPlayerData(url, playerPath) {
+async function fetchPlayerData(url) {
     let parsedUrl = parseCMPonyUrl(url);
 
     if (!parsedUrl) {
         if (looksLikeM3u8(url)) {
-            window.location.href = (playerPath || './player/') + '#' + encodeURIComponent(url);
+            window.location.href = PLAYER_PATH + '#' + encodeURIComponent(url);
         } else {
             displayError('Could not parse this URL as a clipmyhorse.tv link, and it does not look like a direct .m3u8 URL: ' + url);
         }
@@ -197,7 +200,7 @@ async function fetchPlayerData(url, playerPath) {
         if (!response) {
             return;
         }
-        await handlePlayerRedirect(parsedUrl, response, url, playerPath);
+        await handlePlayerRedirect(parsedUrl, response, url);
     } catch (error) {
         console.error('fetchPlayerData error:', error.message);
         displayError('Failed to fetch player data.');
@@ -296,7 +299,7 @@ async function findStreamByStartAtAcrossStreams(streams, startAtId) {
     return null;
 }
 
-async function handlePlayerRedirect(parsedUrl, response, originalUrl, playerPath) {
+async function handlePlayerRedirect(parsedUrl, response, originalUrl) {
     if (parsedUrl.type === 'A') {
         var streamsA = response && response.streams;
         if (!Array.isArray(streamsA) || streamsA.length === 0) {
@@ -338,14 +341,14 @@ async function handlePlayerRedirect(parsedUrl, response, originalUrl, playerPath
             }
         }
 
-        navigateToPlayer(streamA.playlistfile, startSecondsA, originalUrl, playerPath);
+        navigateToPlayer(streamA.playlistfile, startSecondsA, originalUrl);
     } else if (parsedUrl.type === 'C') {
         var streamsC = response && response.streams;
         if (!Array.isArray(streamsC) || streamsC.length === 0 || !streamsC[0] || !streamsC[0].playlistfile) {
             displayError('Player data did not include a stream.');
             return;
         }
-        navigateToPlayer(streamsC[0].playlistfile, undefined, originalUrl, playerPath);
+        navigateToPlayer(streamsC[0].playlistfile, undefined, originalUrl);
     } else if (parsedUrl.type === 'B') {
         try {
             if (!response || response.playlist == null) {
@@ -359,7 +362,7 @@ async function handlePlayerRedirect(parsedUrl, response, originalUrl, playerPath
                 displayError('That horse video index was not found in the playlist.');
                 return;
             }
-            navigateToPlayer(streamUrl, undefined, originalUrl, playerPath);
+            navigateToPlayer(streamUrl, undefined, originalUrl);
         } catch (error) {
             console.error('handlePlayerRedirect error:', error.message);
             displayError('Failed to parse response data.');
@@ -376,7 +379,6 @@ var formatClock = CMP.formatClock;
 
 function resetPlayButtons() {
     $('#play-btn').prop('disabled', false);
-    $('#play-exp-btn').prop('disabled', false);
 }
 
 // opts.onRemove, when given, adds a ✕ on every row that removes it in place (used by the
@@ -397,6 +399,24 @@ function showPicker(title, rows, onPick, opts) {
         var $right = $('<span class="d-flex align-items-center ml-2 text-nowrap">');
         if (row.right) {
             $right.append($('<small class="text-muted">').text(row.right));
+        }
+        // row.detail: function returning the content of an inline details block, toggled
+        // by an ℹ button on the row (built on first open).
+        var $detail = null;
+        if (typeof row.detail === 'function') {
+            $right.append($('<button type="button" class="btn btn-sm btn-outline-secondary ml-2 picker-info" aria-label="Details" title="Details">')
+                .text('ℹ')
+                .on('click', function (e) {
+                    e.stopPropagation();
+                    if (!$detail) {
+                        $detail = $('<div class="picker-detail mt-2 pt-2 border-top">')
+                            .append(row.detail())
+                            .on('click keydown', function (ev) { ev.stopPropagation(); });
+                        $row.append($detail);
+                    } else {
+                        $detail.toggle();
+                    }
+                }));
         }
         if (onRemove) {
             $right.append($('<button type="button" class="close ml-2 picker-remove" aria-label="Remove">')
@@ -520,7 +540,7 @@ function timeAgo(ts) {
     return days < 30 ? days + 'd ago' : new Date(ts).toLocaleDateString();
 }
 
-function showHistoryPicker(playerPath) {
+function showHistoryPicker() {
     var entries = loadHistory();
     if (!entries.length) {
         displayError('No history yet — play a link first.');
@@ -535,7 +555,7 @@ function showHistoryPicker(playerPath) {
         $('#m3u8-placeholder')[0].value = row.url;
         localStorage.setItem('m3u8-link', row.url);
         rememberUrl(row.url);
-        browseAndPlay(row.url, playerPath);
+        browseAndPlay(row.url);
     }, {
         onRemove: function (row) {
             forgetUrl(row.url);
@@ -630,7 +650,159 @@ function parseCompetitionsFromEventHtml(html) {
     return rows;
 }
 
-async function playFromParsed(parsedUrl, originalUrl, playerPath) {
+// ---------------------------------------------------------------------------
+// Live competition: the competitors' timeline (same videodata as archives) for the
+// live stream's current subpart, with a details view per horse/rider.
+// ---------------------------------------------------------------------------
+
+function addDetailLine($box, label, value) {
+    if (value == null || String(value).trim() === '') {
+        return;
+    }
+    $box.append($('<div>')
+        .append($('<span class="text-muted">').text(label + ': '))
+        .append(document.createTextNode(String(value))));
+}
+
+// Three generations: sire/dam, their parents, and theirs. Names come from the API, so
+// everything goes in as text, never markup.
+var PEDIGREE_LINES = [
+    ['father', [['father_father', ['father_father_father', 'father_father_mother']],
+                ['father_mother', ['father_mother_father', 'father_mother_mother']]]],
+    ['mother', [['mother_father', ['mother_father_father', 'mother_father_mother']],
+                ['mother_mother', ['mother_mother_father', 'mother_mother_mother']]]]
+];
+
+function buildPedigreeTable(pedigree) {
+    var nameOf = function (key) {
+        return (pedigree[key] && pedigree[key].name) || '—';
+    };
+    var $table = $('<table class="table table-sm table-bordered mb-0 small">');
+    PEDIGREE_LINES.forEach(function (line) {
+        var parentKey = line[0];
+        var grands = line[1];
+        var first = true;
+        grands.forEach(function (g) {
+            g[1].forEach(function (greatKey, i) {
+                var $tr = $('<tr>');
+                if (first) {
+                    $tr.append($('<td rowspan="4" class="align-middle font-weight-bold">').text(nameOf(parentKey)));
+                    first = false;
+                }
+                if (i === 0) {
+                    $tr.append($('<td rowspan="2" class="align-middle">').text(nameOf(g[0])));
+                }
+                $tr.append($('<td>').text(nameOf(greatKey)));
+                $table.append($tr);
+            });
+        });
+    });
+    return $table;
+}
+
+function buildCompetitorDetail(entry) {
+    var horse = entry.horse || {};
+    var rider = entry.rider || {};
+    var $box = $('<div class="small">');
+
+    $box.append($('<div class="font-weight-bold">').text('Horse'));
+    addDetailLine($box, 'Name', horse.name && (horse.name.sport || horse.name.breed));
+    addDetailLine($box, 'Breed', horse.breed && horse.breed.name);
+    addDetailLine($box, 'Colour', horse.color);
+    addDetailLine($box, 'Gender', horse.gender && horse.gender.value);
+    addDetailLine($box, 'Born', horse.birth_date && horse.birth_date.year);
+    addDetailLine($box, 'FEI id', horse.fei_id);
+    addDetailLine($box, 'Passport / UELN', horse.iso_code);
+    addDetailLine($box, 'Breeder', horse.breeder && horse.breeder.name);
+    if (horse.pedigree) {
+        $box.append($('<div class="text-muted mt-1">').text('Pedigree'));
+        $box.append(buildPedigreeTable(horse.pedigree));
+    }
+
+    $box.append($('<div class="font-weight-bold mt-2">').text('Rider'));
+    addDetailLine($box, 'Name', rider.name);
+    addDetailLine($box, 'Club', rider.club);
+    addDetailLine($box, 'Nation', rider.nation && rider.nation.iso_code);
+    return $box;
+}
+
+function buildLiveCompetitorRows(entries) {
+    return entries
+        .filter(function (e) {
+            return e && e.type === 'COMPETITOR' && typeof e.second === 'number' && e.second >= 0;
+        })
+        .sort(function (a, b) { return a.second - b.second; })
+        .map(function (e) {
+            var horse = (e.horse && e.horse.name && (e.horse.name.sport || e.horse.name.breed)) || 'Unknown horse';
+            var rider = (e.rider && e.rider.name) || 'Unknown rider';
+            var nation = e.rider && e.rider.nation && e.rider.nation.iso_code;
+            return {
+                kind: 'competitor',
+                main: (e.headnumber ? '#' + e.headnumber + '  ' : '') + horse,
+                sub: rider + (nation ? '  •  ' + nation : ''),
+                right: formatClock(e.second),
+                seconds: e.second,
+                detail: function () { return buildCompetitorDetail(e); }
+            };
+        });
+}
+
+// The event's official start/result lists live on longinestiming.com; the page links them
+// per competition. Which one is "this" competition is not marked, so all are offered.
+function parseLonginesLinks(html) {
+    var found = {};
+    var re = /https:\/\/www\.longinestiming\.com\/[^\s"'\\<>]+/g;
+    var m;
+    while ((m = re.exec(html || '')) !== null) {
+        found[m[0]] = true;
+    }
+    return Object.keys(found).map(function (u) {
+        var base = u.split('/').pop().replace(/\.html?$/i, '');
+        var mm = /^(startlist|resultlist)_(\d+)$/.exec(base);
+        var label = mm ? (mm[1] === 'startlist' ? 'Start list' : 'Result list') + ' #' + mm[2] : base || u;
+        return { kind: 'link', main: '🔗  ' + label, sub: u, url: u };
+    });
+}
+
+async function showLivePicker(parsedUrl, url) {
+    var playerdataUrl = playerdataUrlForParsed(parsedUrl);
+    var results = await Promise.all([
+        doFetchWithCors(playerdataUrl, true),
+        doFetchRawWithCors(url, true)
+    ]);
+    var response = results[0];
+    var html = results[1];
+    if (!response) {
+        displayError('Could not load playlist metadata. Check your connection or try again.');
+        return;
+    }
+
+    var stream = pickStreamFromStreams(response.streams, response.current_subpart_id || null)
+        || (response.streams && response.streams[0]);
+    var subpartId = stream && stream.subpart_id;
+    var entries = subpartId ? await fetchVideoDataEntriesForSubpart(String(subpartId), true) : null;
+    var competitors = entries ? buildLiveCompetitorRows(entries) : [];
+    var links = parseLonginesLinks(html);
+
+    if (!competitors.length && !links.length) {
+        // Nothing to browse: behave exactly as before.
+        return handlePlayerRedirect(parsedUrl, response, url);
+    }
+
+    var picks = [{ kind: 'live', main: '🔴  Watch live', sub: response.competition_title || 'Live stream' }]
+        .concat(competitors, links);
+    showPicker(response.competition_title || 'Live competition', picks, function (row) {
+        if (row.kind === 'link') {
+            window.open(row.url, '_blank', 'noopener');
+        } else if (row.kind === 'competitor' && stream && stream.playlistfile) {
+            navigateToPlayer(stream.playlistfile, row.seconds, url);
+        } else {
+            handlePlayerRedirect(parsedUrl, response, url);
+        }
+    });
+}
+
+async function playFromParsed(parsedUrl, originalUrl) {
     var playerdataUrl = playerdataUrlForParsed(parsedUrl);
     if (!playerdataUrl) {
         displayError('Unknown URL type');
@@ -640,16 +812,16 @@ async function playFromParsed(parsedUrl, originalUrl, playerPath) {
     if (!response) {
         return;
     }
-    await handlePlayerRedirect(parsedUrl, response, originalUrl, playerPath);
+    await handlePlayerRedirect(parsedUrl, response, originalUrl);
 }
 
-// Entry point for the Play buttons: offers a picker when the URL points at something
+// Entry point for the Play button: offers a picker when the URL points at something
 // browsable (an event's competitions, a competition's competitors) and otherwise falls
 // straight through to the existing resolve-and-navigate path.
-async function browseAndPlay(url, playerPath) {
+async function browseAndPlay(url) {
     var parsedUrl = parseCMPonyUrl(url);
     if (!parsedUrl) {
-        return fetchPlayerData(url, playerPath);
+        return fetchPlayerData(url);
     }
 
     if (parsedUrl.type === 'D') {
@@ -674,12 +846,16 @@ async function browseAndPlay(url, playerPath) {
 
         showPicker('Competitions', picks, function (row) {
             if (row.kind === 'live') {
-                playFromParsed({ type: 'C', eventId: '14178', event_channel_id: row.channelId }, url, playerPath);
+                playFromParsed({ type: 'C', eventId: '14178', event_channel_id: row.channelId }, url);
             } else {
-                browseAndPlay(row.url, playerPath);
+                browseAndPlay(row.url);
             }
         });
         return;
+    }
+
+    if (parsedUrl.type === 'C') {
+        return showLivePicker(parsedUrl, url);
     }
 
     if (parsedUrl.type === 'A') {
@@ -692,21 +868,21 @@ async function browseAndPlay(url, playerPath) {
         var rows = await buildCompetitorRows(response);
         if (!rows.length) {
             // No horse/rider timeline for this competition; behave exactly as before.
-            return handlePlayerRedirect(parsedUrl, response, url, playerPath);
+            return handlePlayerRedirect(parsedUrl, response, url);
         }
 
         var competitorPicks = [{ main: '▶  Start from the beginning', kind: 'start' }].concat(rows);
         showPicker(response.competition_title || 'Pick a horse / rider', competitorPicks, function (row) {
             if (row.kind === 'start') {
-                handlePlayerRedirect(parsedUrl, response, url, playerPath);
+                handlePlayerRedirect(parsedUrl, response, url);
             } else {
-                navigateToPlayer(row.playlistfile, row.seconds, url, playerPath);
+                navigateToPlayer(row.playlistfile, row.seconds, url);
             }
         });
         return;
     }
 
-    return fetchPlayerData(url, playerPath);
+    return fetchPlayerData(url);
 }
 
 // Helper to display error messages and re-enable the play buttons
@@ -738,13 +914,6 @@ $(window).on('load', function () {
         localStorage.setItem('m3u8-link', $('#m3u8-placeholder')[0].value);
         rememberUrl($('#m3u8-placeholder')[0].value);
         browseAndPlay($('#m3u8-placeholder')[0].value);
-    });
-    $('#play-exp-btn').on('click', function () {
-        document.getElementById('alert-box').style.display = 'none';
-        $('#play-exp-btn').prop('disabled', true);
-        localStorage.setItem('m3u8-link', $('#m3u8-placeholder')[0].value);
-        rememberUrl($('#m3u8-placeholder')[0].value);
-        browseAndPlay($('#m3u8-placeholder')[0].value, './player-experimental/');
     });
     $('#history-btn').on('click', function () {
         document.getElementById('alert-box').style.display = 'none';
