@@ -2,7 +2,7 @@
 //
 // Every page speaks the same link language: "<player path>/#<encoded m3u8 url>?t=<seconds>&orig=<source url>".
 // This file is the single definition of that shape. Loaded as a classic script (not a module) so
-// both the classic player and the ES-module experimental player can use it via the CMP global.
+// the index page and the ES-module player bundle (player/src/player.ts) share it via the CMP global.
 window.CMP = (function () {
     function parseM3u8FromHash() {
         var raw = window.location.hash.slice(1);

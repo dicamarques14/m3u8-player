@@ -1,4 +1,4 @@
-/* Shared across index.html, player/ and player-experimental/. Page-specific rules stay
+/* Shared across index.html and player/. Page-specific rules stay
    in each page's own <style> block. */
 
 body,

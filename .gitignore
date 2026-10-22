@@ -1,1 +1,5 @@
 node_modules/
+# Built from player/src by `npm run build:player` (CI does it on deploy); not committed.
+player/player.js
+player/movi.wasm
+.omc/
