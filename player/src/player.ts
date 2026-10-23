@@ -7,6 +7,7 @@
 // imported, so the engine's WASM is a separate file, copied next to this bundle as
 // player/movi.wasm by the same script.
 import 'movi-player/element/slim';
+import type { MoviElement } from 'movi-player/element/slim';
 
 const container = document.getElementById('player-container')!;
 const homeBtn = document.getElementById('home-btn') as HTMLAnchorElement;
@@ -24,7 +25,8 @@ if (!m3u8Url) {
 const startSeconds = CMP.startSecondsFromQuery();
 const originalUrl = CMP.originalUrlFromQuery();
 
-const el = document.createElement('movi-player');
+// Cast: the tag-name map augmentation is not picked up through the side-effect import above.
+const el = document.createElement('movi-player') as MoviElement;
 // The slim build resolves movi.wasm itself only from its own import.meta.url; naming it
 // here keeps that independent of how the bundle was produced or where it is served from.
 // Relative to this bundle, so it also holds under a sub-path (GitHub Pages project site).
