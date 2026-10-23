@@ -12,21 +12,25 @@ If you want live streams legally then visit this repo - https://github.com/notan
 This website is tested on Google Chrome and Firefox desktop web browsers. Not tested on android and iOS. Raise an issue if it doesn't work.
 ## Player
 
-`player/` is a [movi-player](https://github.com/mrujjwalg/movi-player) (`<movi-player>`, WebCodecs +
-FFmpeg-WASM; HLS through its bundled Shaka). Its controls, keyboard shortcuts and gestures are
-movi-player's own; the page enables `fastseek` (arrow keys and double-tap on the left/right third
-seek ±10s).
-WebCodecs needs a secure context: HTTPS or `localhost` (not a LAN IP over plain HTTP).
-Last resort: if movi-player errors before the stream opens (or the browser has no WebCodecs and
-no MSE), the page swaps in a plain `<video>`, using hls.js where the browser lacks native HLS.
+`player/` plays with a plain `<video>` by default (hls.js where the browser has MSE but no native
+HLS), with double-tap on the left/right third (±10s) and keys: space/`k` play-pause, arrows seek
+5s / volume, `f` fullscreen, `m` mute.
+
+The 🎞️ header button switches to [movi-player](https://github.com/mrujjwalg/movi-player)
+(`<movi-player>`, WebCodecs + FFmpeg-WASM; HLS through its bundled Shaka). Its controls, keys and
+gestures are movi-player's own (`fastseek`: arrows and double-tap seek ±10s). The choice is
+remembered in `localStorage`. WebCodecs needs a secure context: HTTPS or `localhost` (not a LAN IP
+over plain HTTP). If movi-player errors before the stream opens, or the browser has no WebCodecs
+and no MSE, the page falls back to the plain player.
 
 The rest of the site is plain static JS. The player page is TypeScript (`player/src/player.ts`),
-bundled with esbuild into `player/player.js`, and `movi.wasm` is copied next to it. Neither is
-committed; CI builds them on deploy. To run locally:
+bundled by esbuild with code splitting into `player/player.js` plus lazy chunks (movi-player,
+hls.js), and `movi.wasm` is copied next to it. None are committed; CI builds them on deploy.
+To run locally:
 ```
 npm install
 npm run typecheck:player   # tsc --noEmit
-npm run build:player       # writes player/player.js and player/movi.wasm
+npm run build:player       # writes player/player.js, player/chunk-*.js, player/movi.wasm
 ```
 then serve the repo root with any static server (e.g. `python3 -m http.server 8080`).
 

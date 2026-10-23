@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:player": "esbuild player/src/player.ts --bundle --format=esm --outfile=player/player.js && cp node_modules/movi-player/dist/movi.wasm player/movi.wasm",
+    "build:player": "esbuild player/src/player.ts --bundle --format=esm --splitting --outdir=player && cp node_modules/movi-player/dist/movi.wasm player/movi.wasm",
     "typecheck:player": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
