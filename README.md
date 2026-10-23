@@ -17,6 +17,8 @@ FFmpeg-WASM; HLS through its bundled Shaka). Its controls, keyboard shortcuts an
 movi-player's own; the page enables `fastseek` (arrow keys and double-tap on the left/right third
 seek ±10s).
 WebCodecs needs a secure context: HTTPS or `localhost` (not a LAN IP over plain HTTP).
+Last resort: if movi-player errors before the stream opens (or the browser has no WebCodecs and
+no MSE), the page swaps in a plain `<video>`, using hls.js where the browser lacks native HLS.
 
 The rest of the site is plain static JS. The player page is TypeScript (`player/src/player.ts`),
 bundled with esbuild into `player/player.js`, and `movi.wasm` is copied next to it. Neither is

@@ -7,6 +7,7 @@
 // imported, so the engine's WASM is a separate file, copied next to this bundle as
 // player/movi.wasm by the same script.
 import 'movi-player/element/slim';
+import type { MoviElement } from 'movi-player/element/slim';
 
 const container = document.getElementById('player-container')!;
 const homeBtn = document.getElementById('home-btn') as HTMLAnchorElement;
@@ -24,7 +25,8 @@ if (!m3u8Url) {
 const startSeconds = CMP.startSecondsFromQuery();
 const originalUrl = CMP.originalUrlFromQuery();
 
-const el = document.createElement('movi-player');
+// Cast: the tag-name map augmentation is not picked up through the side-effect import above.
+const el = document.createElement('movi-player') as MoviElement;
 // The slim build resolves movi.wasm itself only from its own import.meta.url; naming it
 // here keeps that independent of how the bundle was produced or where it is served from.
 // Relative to this bundle, so it also holds under a sub-path (GitHub Pages project site).
@@ -34,6 +36,21 @@ el.setAttribute('controls', '');
 el.setAttribute('autoplay', '');
 el.setAttribute('theme', 'dark');
 el.setAttribute('volume', '0.3');
+// A source movi's own pipeline cannot open (or a browser without WebCodecs) is handed to the
+// browser's <video> inside movi's controls, instead of a dead end.
+el.setAttribute('fallback', 'native');
+// The viewer can also choose the browser's <video> from the start (header button below).
+const ENGINE_KEY = 'm3u8-engine';
+function nativePreferred(): boolean {
+    try {
+        return localStorage.getItem(ENGINE_KEY) === 'native';
+    } catch {
+        return false;
+    }
+}
+if (nativePreferred()) {
+    el.setAttribute('engine', 'native');
+}
 // Arrow keys and double-tap in the left/right third seek +/-10s; no extra bar buttons.
 el.setAttribute('fastseek', 'keys gestures');
 if (startSeconds !== undefined) {
@@ -45,10 +62,12 @@ container.appendChild(el);
 
 // Only meaningful once the stream is open: before that currentTime says nothing.
 let allowPlaybackUrlSync = false;
+// Whatever is playing right now: movi-player, or the last-resort <video> below.
+let activeMedia: { currentTime: number } = el;
 
 function urlWithCurrentTime(): URL {
     const u = new URL(window.location.href);
-    const param = CMP.formatTimeParam(el.currentTime);
+    const param = CMP.formatTimeParam(activeMedia.currentTime);
     if (param !== null) {
         u.searchParams.set('t', param);
     } else {
@@ -79,16 +98,80 @@ el.addEventListener('loadedmetadata', () => {
 });
 el.addEventListener('pause', replaceUrlWithCurrentTime);
 
+function showError(message: string) {
+    errorBox.textContent = message;
+    errorBox.style.display = 'block';
+}
+
+// Last resort: a plain <video>, with hls.js where the browser has MSE but no native HLS.
+// Only when movi-player failed before it ever opened the stream; an error once playing is
+// not a reason to throw the viewer's position away.
+let fellBack = false;
+async function fallBackToPlainVideo() {
+    if (fellBack) {
+        return;
+    }
+    fellBack = true;
+    el.remove();
+    errorBox.style.display = 'none';
+
+    const video = document.createElement('video');
+    video.controls = true;
+    video.autoplay = true;
+    video.volume = 0.3;
+    video.style.cssText = 'display:block;width:100%;height:100%;background:#000';
+    container.appendChild(video);
+    activeMedia = video;
+    allowPlaybackUrlSync = false;
+
+    video.addEventListener('loadedmetadata', () => {
+        allowPlaybackUrlSync = true;
+        if (startSeconds !== undefined) {
+            video.currentTime = Number.isFinite(video.duration) && video.duration > 0
+                ? Math.min(startSeconds, video.duration) : startSeconds;
+        }
+    }, { once: true });
+    video.addEventListener('pause', replaceUrlWithCurrentTime);
+
+    try {
+        const { default: Hls } = await import('hls.js');
+        if (Hls.isSupported()) {
+            const hls = new Hls();
+            hls.loadSource(m3u8Url!);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => { void video.play(); });
+            window.addEventListener('pagehide', (ev) => { if (!ev.persisted) hls.destroy(); });
+            return;
+        }
+    } catch (err) {
+        console.error('[player] hls.js failed to load', err);
+    }
+    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = m3u8Url!;
+        return;
+    }
+    showError('This browser cannot play this stream.');
+}
+
 el.addEventListener('error', (e) => {
     console.error('[player] movi-player error', e);
-    errorBox.textContent = 'This stream could not be played. See the console for details.';
-    errorBox.style.display = 'block';
+    if (!allowPlaybackUrlSync) {
+        void fallBackToPlainVideo();
+        return;
+    }
+    showError('This stream could not be played. See the console for details.');
 });
+
+// No WebCodecs and no MSE: movi-player has nothing to run on, so skip straight to the
+// last resort instead of waiting for an error that may never be reported.
+if (!('VideoDecoder' in window) && !('MediaSource' in window) && !('ManagedMediaSource' in window)) {
+    void fallBackToPlainVideo();
+}
 
 shareBtn.addEventListener('click', () => {
     replaceUrlWithCurrentTime();
     const shareUrl = urlWithCurrentTime().href;
-    const at = CMP.formatTimeParam(el.currentTime) || '0';
+    const at = CMP.formatTimeParam(activeMedia.currentTime) || '0';
     if (navigator.share) {
         navigator.share({ title: document.title, text: 'Video at ' + at + 's', url: shareUrl })
             .catch((err) => console.error('Error sharing', err));
@@ -102,6 +185,27 @@ shareBtn.addEventListener('click', () => {
 });
 
 // ---- header buttons ----------------------------------------------------------------------
+
+// Switch between movi's own engine and the browser's <video>; reloads at the same position.
+const engineBtn = document.getElementById('engine-btn') as HTMLButtonElement;
+const native = nativePreferred();
+engineBtn.classList.toggle('btn-light', native);
+engineBtn.classList.toggle('btn-outline-light', !native);
+engineBtn.title = native ? 'Using the browser video player (click for movi-player)'
+    : 'Using movi-player (click for the browser video player)';
+engineBtn.addEventListener('click', () => {
+    try {
+        if (native) {
+            localStorage.removeItem(ENGINE_KEY);
+        } else {
+            localStorage.setItem(ENGINE_KEY, 'native');
+        }
+    } catch {
+        /* storage blocked: the switch cannot be remembered */
+    }
+    replaceUrlWithCurrentTime();
+    window.location.reload();
+});
 
 if (originalUrl) {
     originalBtn.style.display = '';
