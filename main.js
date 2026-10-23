@@ -134,7 +134,9 @@ function playerdataUrlForParsed(parsedUrl) {
 // The one player page (movi-player, see player/src/player.ts).
 var PLAYER_PATH = './player/';
 
-function navigateToPlayer(playlistUrl, startSeconds, originalUrl) {
+// atEpoch: for a live stream, the wall-clock time (Unix seconds) to start the DVR at; the
+// player rebuilds the playlist from there to now (player/src/dvr.ts).
+function navigateToPlayer(playlistUrl, startSeconds, originalUrl, atEpoch) {
     if (!looksLikeM3u8(playlistUrl)) {
         displayError('Resolved stream does not look like an m3u8 playlist: ' + (playlistUrl || '(empty)'));
         return;
@@ -143,6 +145,9 @@ function navigateToPlayer(playlistUrl, startSeconds, originalUrl) {
     var params = new URLSearchParams();
     if (typeof startSeconds === 'number' && Number.isFinite(startSeconds) && startSeconds >= 0) {
         params.set('t', String(startSeconds));
+    }
+    if (typeof atEpoch === 'number' && Number.isFinite(atEpoch) && atEpoch > 0) {
+        params.set('at', String(Math.floor(atEpoch)));
     }
     if (originalUrl) {
         params.set('orig', originalUrl);
@@ -726,6 +731,129 @@ function buildCompetitorDetail(entry) {
     return $box;
 }
 
+// ---- live socket (wss://websocket.cmh.tv/) --------------------------------------------------
+// Subscribing to a channel answers with its history: one `showid` event per thing put on
+// screen, each with the Unix time it appeared. injecttype 1 is a rider (with the full
+// `chapter`: rider, horse, pedigree), 2 is a break.
+
+function cmhDeviceId() {
+    try {
+        var id = localStorage.getItem('cmh-device-id');
+        if (!id) {
+            id = 'cmh_' + (window.crypto && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
+            localStorage.setItem('cmh-device-id', id);
+        }
+        return id;
+    } catch (e) {
+        return 'cmh_' + String(Date.now());
+    }
+}
+
+// Resolves with the history array, or null (refused, closed, timed out, nothing sent).
+function fetchLiveHistory(channelId, timeoutMs) {
+    return new Promise(function (resolve) {
+        var ws = null;
+        var done = false;
+        var timer = null;
+        function finish(value) {
+            if (done) {
+                return;
+            }
+            done = true;
+            clearTimeout(timer);
+            try { if (ws) { ws.close(); } } catch (e) { /* already closed */ }
+            resolve(value);
+        }
+        timer = setTimeout(function () { finish(null); }, timeoutMs || 8000);
+        try {
+            ws = new WebSocket('wss://websocket.cmh.tv/');
+        } catch (e) {
+            return finish(null);
+        }
+        ws.onopen = function () {
+            ws.send(JSON.stringify({
+                action: 'subscribe',
+                data: { channelId: String(channelId), userId: 'cmhuser', deviceId: cmhDeviceId(), isUnlimited: false }
+            }));
+        };
+        ws.onmessage = function (ev) {
+            var msg;
+            try { msg = JSON.parse(ev.data); } catch (e) { return; }
+            if (msg && msg.type === 'history' && Array.isArray(msg.history)) {
+                finish(msg.history);
+            }
+        };
+        ws.onerror = function () { finish(null); };
+        ws.onclose = function () { finish(null); };
+    });
+}
+
+// The site's own "?head_number=920" jump: which rider is wanted, as a string.
+function headNumberOf(url) {
+    try {
+        var n = new URL(url).searchParams.get('head_number');
+        return n ? String(n).trim() : '';
+    } catch (e) {
+        return '';
+    }
+}
+
+// The socket's short pedigree keys on the same shape buildPedigreeTable reads:
+// v/m sire and dam, vv/vm sire's parents, mv/mm dam's parents, mmv/mmm dam's dam's parents.
+function pedigreeFromChapterHorse(h) {
+    var n = function (v) { return v ? { name: v } : undefined; };
+    return {
+        father: n(h.v), mother: n(h.m),
+        father_father: n(h.vv), father_mother: n(h.vm),
+        mother_father: n(h.mv), mother_mother: n(h.mm),
+        mother_mother_father: n(h.mmv), mother_mother_mother: n(h.mmm)
+    };
+}
+
+function buildChapterDetail(ch) {
+    var horse = ch.horse || {};
+    var $box = $('<div class="small">');
+    $box.append($('<div class="font-weight-bold">').text('Horse'));
+    addDetailLine($box, 'Name', horse.sport_name || horse.breed_name);
+    addDetailLine($box, 'Breed', horse.breed_en || horse.breed_name);
+    addDetailLine($box, 'Colour', horse.color_en);
+    addDetailLine($box, 'Gender', horse.gender_en);
+    addDetailLine($box, 'Born', horse.born);
+    addDetailLine($box, 'FEI id', horse.fei_id);
+    addDetailLine($box, 'Passport / UELN', horse.iso);
+    addDetailLine($box, 'Breeder', horse.breeder);
+    if (['v', 'm', 'vv', 'vm', 'mv', 'mm', 'mmv', 'mmm'].some(function (k) { return horse[k]; })) {
+        $box.append($('<div class="text-muted mt-1">').text('Pedigree'));
+        $box.append(buildPedigreeTable(pedigreeFromChapterHorse(horse)));
+    }
+    $box.append($('<div class="font-weight-bold mt-2">').text('Rider'));
+    addDetailLine($box, 'Name', ch.rider);
+    addDetailLine($box, 'Club', ch.club);
+    addDetailLine($box, 'Nation', ch.nation_title_en || ch.nation);
+    return $box;
+}
+
+function buildLiveRowsFromHistory(history) {
+    return history
+        .filter(function (e) {
+            return e && e.type === 'showid' && e.injecttype === 1 && e.chapter && typeof e.timestamp === 'number';
+        })
+        .sort(function (a, b) { return a.timestamp - b.timestamp; })
+        .map(function (e) {
+            var ch = e.chapter;
+            var horse = (ch.horse && (ch.horse.sport_name || ch.horse.breed_name)) || 'Unknown horse';
+            return {
+                kind: 'competitor',
+                main: (ch.head_nr ? '#' + ch.head_nr + '  ' : '') + horse,
+                sub: (ch.rider || 'Unknown rider') + (ch.nation ? '  •  ' + ch.nation : ''),
+                right: new Date(e.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                timestamp: e.timestamp,
+                headNumber: ch.head_nr ? String(ch.head_nr) : '',
+                detail: function () { return buildChapterDetail(ch); }
+            };
+        });
+}
+
 function buildLiveCompetitorRows(entries) {
     return entries
         .filter(function (e) {
@@ -780,9 +908,26 @@ async function showLivePicker(parsedUrl, url) {
     var stream = pickStreamFromStreams(response.streams, response.current_subpart_id || null)
         || (response.streams && response.streams[0]);
     var subpartId = stream && stream.subpart_id;
-    var entries = subpartId ? await fetchVideoDataEntriesForSubpart(String(subpartId), true) : null;
-    var competitors = entries ? buildLiveCompetitorRows(entries) : [];
+
+    // The live socket has the real wall-clock time each rider appeared, which the player
+    // turns into a DVR start. Without it (socket refused, e.g. by origin) fall back to the
+    // timeline the archive uses, whose offsets a live playlist cannot reach back to.
+    var history = stream && stream.channel_id ? await fetchLiveHistory(stream.channel_id) : null;
+    var competitors = history ? buildLiveRowsFromHistory(history) : [];
+    if (!competitors.length) {
+        var entries = subpartId ? await fetchVideoDataEntriesForSubpart(String(subpartId), true) : null;
+        competitors = entries ? buildLiveCompetitorRows(entries) : [];
+    }
     var links = parseLonginesLinks(html);
+
+    // A link with ?head_number=<n> (the site's own "jump to this rider") goes straight there.
+    var wanted = headNumberOf(url);
+    if (wanted && stream && stream.playlistfile) {
+        var hits = competitors.filter(function (r) { return r.headNumber === wanted && r.timestamp; });
+        if (hits.length) {
+            return navigateToPlayer(stream.playlistfile, undefined, url, hits[hits.length - 1].timestamp);
+        }
+    }
 
     if (!competitors.length && !links.length) {
         // Nothing to browse: behave exactly as before.
@@ -795,7 +940,7 @@ async function showLivePicker(parsedUrl, url) {
         if (row.kind === 'link') {
             window.open(row.url, '_blank', 'noopener');
         } else if (row.kind === 'competitor' && stream && stream.playlistfile) {
-            navigateToPlayer(stream.playlistfile, row.seconds, url);
+            navigateToPlayer(stream.playlistfile, row.timestamp ? undefined : row.seconds, url, row.timestamp);
         } else {
             handlePlayerRedirect(parsedUrl, response, url);
         }

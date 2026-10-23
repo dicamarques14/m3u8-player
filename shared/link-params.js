@@ -25,6 +25,16 @@ window.CMP = (function () {
         return Number.isFinite(n) ? n : undefined;
     }
 
+    // For a live stream: the wall-clock time (Unix seconds) the DVR starts at, or undefined.
+    function atEpochFromQuery() {
+        var at = new URLSearchParams(window.location.search).get('at');
+        if (at === null || at === '') {
+            return undefined;
+        }
+        var n = parseInt(at, 10);
+        return Number.isFinite(n) && n > 0 ? n : undefined;
+    }
+
     function originalUrlFromQuery() {
         return new URLSearchParams(window.location.search).get('orig') || null;
     }
@@ -54,6 +64,7 @@ window.CMP = (function () {
         parseM3u8FromHash: parseM3u8FromHash,
         startSecondsFromQuery: startSecondsFromQuery,
         originalUrlFromQuery: originalUrlFromQuery,
+        atEpochFromQuery: atEpochFromQuery,
         formatTimeParam: formatTimeParam,
         formatClock: formatClock
     };

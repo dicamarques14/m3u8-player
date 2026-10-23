@@ -6,6 +6,7 @@
 // player/player.js, and movi-player and hls.js are separate chunks loaded only when used.
 // movi's WASM is a separate file too, copied to player/movi.wasm by the same script.
 import type { MoviElement } from 'movi-player/element/slim';
+import { buildDvr } from './dvr';
 
 const container = document.getElementById('player-container')!;
 const homeBtn = document.getElementById('home-btn') as HTMLAnchorElement;
@@ -23,6 +24,13 @@ if (!m3u8Url) {
 
 const startSeconds = CMP.startSecondsFromQuery();
 const originalUrl = CMP.originalUrlFromQuery();
+// A live stream opened at a wall-clock time (?at=): the playlist is rebuilt from there to now
+// (dvr.ts) and played as a VOD. What is played, and where it starts, is settled in
+// prepareSource() before a player is mounted.
+const atEpoch = CMP.atEpochFromQuery();
+let playUrl: string = m3u8Url;
+let startOffset: number | undefined = startSeconds;
+let dvrStartEpoch: number | undefined;
 
 // ---- which player ------------------------------------------------------------------------
 
@@ -45,7 +53,14 @@ let activeMedia: { currentTime: number } | null = null;
 
 function urlWithCurrentTime(): URL {
     const u = new URL(window.location.href);
-    const param = CMP.formatTimeParam(activeMedia ? activeMedia.currentTime : 0);
+    const now = activeMedia ? activeMedia.currentTime : 0;
+    if (dvrStartEpoch !== undefined) {
+        // Playlist time means nothing after a reload; the wall-clock time does.
+        u.searchParams.set('at', String(Math.round(dvrStartEpoch + now)));
+        u.searchParams.delete('t');
+        return u;
+    }
+    const param = CMP.formatTimeParam(now);
     if (param !== null) {
         u.searchParams.set('t', param);
     } else {
@@ -173,7 +188,6 @@ async function mountPlain() {
         moviEl.remove();
         moviEl = null;
     }
-    errorBox.style.display = 'none';
 
     const video = document.createElement('video');
     video.controls = true;
@@ -187,9 +201,9 @@ async function mountPlain() {
 
     video.addEventListener('loadedmetadata', () => {
         allowPlaybackUrlSync = true;
-        if (startSeconds !== undefined) {
+        if (startOffset !== undefined) {
             video.currentTime = Number.isFinite(video.duration) && video.duration > 0
-                ? Math.min(startSeconds, video.duration) : startSeconds;
+                ? Math.min(startOffset, video.duration) : startOffset;
         }
     }, { once: true });
     video.addEventListener('pause', replaceUrlWithCurrentTime);
@@ -198,7 +212,7 @@ async function mountPlain() {
         const { default: Hls } = await import('hls.js');
         if (Hls.isSupported()) {
             const hls = new Hls();
-            hls.loadSource(m3u8Url!);
+            hls.loadSource(playUrl);
             hls.attachMedia(video);
             hls.on(Hls.Events.MANIFEST_PARSED, () => { void video.play(); });
             window.addEventListener('pagehide', (ev) => { if (!ev.persisted) hls.destroy(); });
@@ -208,7 +222,7 @@ async function mountPlain() {
         console.error('[player] hls.js failed to load', err);
     }
     if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = m3u8Url!;
+        video.src = playUrl;
         return;
     }
     showError('This browser cannot play this stream.');
@@ -237,7 +251,7 @@ async function mountMovi() {
     // here keeps that independent of how the bundle was produced or where it is served from.
     // Relative to this bundle, so it also holds under a sub-path (GitHub Pages project site).
     el.setAttribute('wasmurl', new URL('movi.wasm', import.meta.url).href);
-    el.setAttribute('src', m3u8Url!);
+    el.setAttribute('src', playUrl);
     el.setAttribute('controls', '');
     el.setAttribute('autoplay', '');
     el.setAttribute('theme', 'dark');
@@ -246,8 +260,8 @@ async function mountMovi() {
     el.setAttribute('buffersize', String(MOVI_BUFFER_MB));
     // Arrow keys and double-tap in the left/right third seek +/-10s; no extra bar buttons.
     el.setAttribute('fastseek', 'keys gestures');
-    if (startSeconds !== undefined) {
-        el.setAttribute('startat', String(startSeconds));
+    if (startOffset !== undefined) {
+        el.setAttribute('startat', String(startOffset));
     }
     activeMedia = el;
 
@@ -255,8 +269,8 @@ async function mountMovi() {
         allowPlaybackUrlSync = true;
         // startat is the primary way to open mid-stream. If it did not take (the position is
         // clearly short of what was asked), seek there once the tracks are known.
-        if (startSeconds !== undefined && el.currentTime < startSeconds - 1) {
-            el.currentTime = startSeconds;
+        if (startOffset !== undefined && el.currentTime < startOffset - 1) {
+            el.currentTime = startOffset;
         }
     });
     el.addEventListener('pause', replaceUrlWithCurrentTime);
@@ -277,14 +291,32 @@ async function mountMovi() {
 // No WebCodecs and no MSE: movi-player has nothing to run on.
 const moviPossible = 'VideoDecoder' in window || 'MediaSource' in window || 'ManagedMediaSource' in window;
 
-if (useMovi && moviPossible) {
-    mountMovi().catch((err) => {
-        console.error('[player] movi-player failed to load', err);
-        fallBackFromMovi();
-    });
-} else {
-    void mountPlain();
+async function prepareSource() {
+    if (atEpoch === undefined) {
+        return;
+    }
+    try {
+        const dvr = await buildDvr(m3u8Url!, atEpoch);
+        playUrl = dvr.masterUrl;
+        dvrStartEpoch = dvr.startEpoch;
+        startOffset = Math.max(0, atEpoch - dvr.startEpoch);
+    } catch (err) {
+        // Not an archive-able stream (or the CDN refused): play it live rather than not at all.
+        console.error('[player] could not rebuild the DVR', err);
+        showError('Could not rewind this live stream; playing it live.');
+    }
 }
+
+void prepareSource().then(() => {
+    if (useMovi && moviPossible) {
+        mountMovi().catch((err) => {
+            console.error('[player] movi-player failed to load', err);
+            fallBackFromMovi();
+        });
+    } else {
+        void mountPlain();
+    }
+});
 
 // ---- header buttons ----------------------------------------------------------------------
 
