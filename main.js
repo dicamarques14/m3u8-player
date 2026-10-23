@@ -947,19 +947,6 @@ async function showLivePicker(parsedUrl, url) {
     });
 }
 
-async function playFromParsed(parsedUrl, originalUrl) {
-    var playerdataUrl = playerdataUrlForParsed(parsedUrl);
-    if (!playerdataUrl) {
-        displayError('Unknown URL type');
-        return;
-    }
-    var response = await doFetchWithCors(playerdataUrl);
-    if (!response) {
-        return;
-    }
-    await handlePlayerRedirect(parsedUrl, response, originalUrl);
-}
-
 // Entry point for the Play button: offers a picker when the URL points at something
 // browsable (an event's competitions, a competition's competitors) and otherwise falls
 // straight through to the existing resolve-and-navigate path.
@@ -991,7 +978,8 @@ async function browseAndPlay(url) {
 
         showPicker('Competitions', picks, function (row) {
             if (row.kind === 'live') {
-                playFromParsed({ type: 'C', eventId: '14178', event_channel_id: row.channelId }, url);
+                // Through the live list (past riders, jump to their time), not straight to live.
+                showLivePicker({ type: 'C', eventId: '14178', event_channel_id: row.channelId }, url);
             } else {
                 browseAndPlay(row.url);
             }
