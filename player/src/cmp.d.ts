@@ -4,6 +4,7 @@ interface CMPGlobal {
     parseM3u8FromHash(): string | undefined;
     startSecondsFromQuery(): number | undefined;
     originalUrlFromQuery(): string | null;
+    atEpochFromQuery(): number | undefined;
     formatTimeParam(seconds: number): string | null;
     formatClock(totalSeconds: number): string;
 }
